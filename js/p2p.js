@@ -18,9 +18,10 @@ class MiniMqtt {
     this.url = url;
     this.clientId = clientId;
     this.ws = null;
-    this.handlers = {};       // 'connect' | 'message' | 'error' | 'close'
+    this.handlers = {};
     this.packetId = 1;
     this.connected = false;
+    this._connectFired = false;
   }
 
   on(event, fn) { this.handlers[event] = fn; }
@@ -45,6 +46,9 @@ class MiniMqtt {
 
     this.ws.onclose = () => {
       this.connected = false;
+      if (!this._connectFired) {
+        if (this.handlers.error) this.handlers.error(new Error('WebSocket 连接被关闭'));
+      }
       if (this.handlers.close) this.handlers.close();
     };
   }
@@ -61,9 +65,9 @@ class MiniMqtt {
     this._send(0x82, body);
   }
 
-  publish(topic, message, qos = 0) {
+  publish(topic, message) {
     const topicBytes = this._encodeStr(topic);
-    const msgBytes = this._encodeStr(message);
+    const msgBytes = new TextEncoder().encode(message);
     const body = this._concat(topicBytes, msgBytes);
     this._send(0x30, body);
   }
@@ -103,9 +107,15 @@ class MiniMqtt {
     pos++; // 最后一个 remaining length 字节
 
     if (type === 2) {
-      // CONNACK — 连接成功
-      this.connected = true;
-      if (this.handlers.connect) this.handlers.connect();
+      // CONNACK — 检查返回码
+      const returnCode = pos < data.length ? data[pos + 1] : 1;
+      if (returnCode === 0) {
+        this.connected = true;
+        this._connectFired = true;
+        if (this.handlers.connect) this.handlers.connect();
+      } else {
+        if (this.handlers.error) this.handlers.error(new Error('MQTT 拒绝连接，错误码: ' + returnCode));
+      }
     } else if (type === 3) {
       // PUBLISH — 收到消息
       const topicLen = (data[pos] << 8) | data[pos + 1];
@@ -162,8 +172,13 @@ class MiniMqtt {
 //  配置
 // ============================================================
 
-// EMQX 免费公共 MQTT broker（WebSocket 加密）
-const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+// 公共 MQTT broker 列表（按优先级尝试）
+const MQTT_BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',          // EMQX 中国
+  'wss://test.mosquitto.org:8081/mqtt',      // Mosquitto
+  'wss://mqtt.eclipseprojects.io:443/mqtt',  // Eclipse
+  'wss://broker.hivemq.com:8884/mqtt',       // HiveMQ
+];
 
 const RTC_CONFIG = {
   iceServers: [
@@ -187,24 +202,39 @@ let roomCode = '';
 //  MQTT 连接
 // ============================================================
 
-function mqttConnect() {
+async function mqttConnect() {
+  const clientId = 'nb_' + Math.random().toString(36).slice(2, 10);
+
+  // 逐个尝试 broker
+  for (const brokerUrl of MQTT_BROKERS) {
+    try {
+      const client = await tryConnect(brokerUrl, clientId);
+      return client;
+    } catch (e) {
+      // 继续尝试下一个
+    }
+  }
+  throw new Error('无法连接信令服务，请检查网络或开启梯子');
+}
+
+function tryConnect(brokerUrl, clientId) {
   return new Promise((resolve, reject) => {
-    const clientId = 'nb_' + Math.random().toString(36).slice(2, 10);
-    const client = new MiniMqtt(MQTT_BROKER, clientId);
+    const client = new MiniMqtt(brokerUrl, clientId);
 
     const timer = setTimeout(() => {
       client.close();
-      reject(new Error('信令服务连接超时，请检查网络'));
-    }, 12000);
+      reject(new Error('超时'));
+    }, 6000);
 
     client.on('connect', () => {
       clearTimeout(timer);
       resolve(client);
     });
 
-    client.on('error', (err) => {
+    client.on('error', () => {
       clearTimeout(timer);
-      reject(err);
+      client.close();
+      reject(new Error('连接失败'));
     });
 
     client.connect();
