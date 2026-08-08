@@ -1,245 +1,26 @@
 /**
- * p2p.js — WebRTC P2P 直连 + MQTT 自动信令
+ * p2p.js — WebRTC P2P 联机（PeerJS 信令）
  *
- * 内置极简 MQTT 客户端（~100 行），不需要任何外部库。
- * 信令通过免费 MQTT broker 自动完成，你只需把 4 位房间号发给朋友。
- *
- * 流程：
- *   房主 → 创建房间(得房间号) → 等客机加入 → DataChannel 直连
- *   客机 → 输入房间号 → 自动连上 → DataChannel 直连
+ * 使用 PeerJS 免费云信令服务器 (0.peerjs.com) 自动交换 SDP/ICE。
+ * 你只需把 4 位房间号发给朋友，无需复制粘贴。
  */
 
-// ============================================================
-//  极简 MQTT 3.1.1 客户端（WebSocket）
-// ============================================================
-
-class MiniMqtt {
-  constructor(url, clientId) {
-    this.url = url;
-    this.clientId = clientId;
-    this.ws = null;
-    this.handlers = {};
-    this.packetId = 1;
-    this.connected = false;
-    this._connectFired = false;
-  }
-
-  on(event, fn) { this.handlers[event] = fn; }
-
-  connect() {
-    this.ws = new WebSocket(this.url, 'mqtt');
-    this.ws.binaryType = 'arraybuffer';
-
-    this.ws.onopen = () => {
-      // 发送 MQTT CONNECT 包
-      this._sendConnect();
-    };
-
-    this.ws.onmessage = (e) => {
-      const data = new Uint8Array(e.data);
-      this._handlePacket(data);
-    };
-
-    this.ws.onerror = () => {
-      if (this.handlers.error) this.handlers.error(new Error('WebSocket 连接失败'));
-    };
-
-    this.ws.onclose = () => {
-      this.connected = false;
-      if (!this._connectFired) {
-        if (this.handlers.error) this.handlers.error(new Error('WebSocket 连接被关闭'));
-      }
-      if (this.handlers.close) this.handlers.close();
-    };
-  }
-
-  subscribe(topic) {
-    // MQTT SUBSCRIBE: fixed header 0x82 + remaining length + packet ID + topic + QoS
-    const pid = this.packetId++;
-    const topicBytes = this._encodeStr(topic);
-    const varHeader = new Uint8Array([0, pid]); // packet identifier
-    const payload = new Uint8Array(topicBytes.length + 1);
-    payload.set(topicBytes, 0);
-    payload[topicBytes.length] = 0; // QoS 0
-    const body = this._concat(varHeader, payload);
-    this._send(0x82, body);
-  }
-
-  publish(topic, message) {
-    const topicBytes = this._encodeStr(topic);
-    const msgBytes = new TextEncoder().encode(message);
-    const body = this._concat(topicBytes, msgBytes);
-    this._send(0x30, body);
-  }
-
-  close() {
-    if (this.ws) { this.ws.close(); this.ws = null; }
-    this.connected = false;
-  }
-
-  // ---- 内部 ----
-
-  _send(typeAndFlags, body) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    const bodyLen = body ? body.length : 0;
-    const remLen = this._encodeRemLen(bodyLen);
-    const fixed = new Uint8Array([typeAndFlags]);
-    const packet = this._concat(fixed, remLen, body || new Uint8Array(0));
-    this.ws.send(packet);
-  }
-
-  _sendConnect() {
-    const protoName = this._encodeStr('MQTT');
-    const protoLevel = new Uint8Array([4]);       // MQTT 3.1.1
-    const flags = new Uint8Array([2]);             // Clean Session
-    const keepAlive = new Uint8Array([0, 60]);     // 60 秒
-    const clientId = this._encodeStr(this.clientId);
-    const payload = this._concat(protoName, protoLevel, flags, keepAlive, clientId);
-    this._send(0x10, payload);
-  }
-
-  _handlePacket(data) {
-    if (data.length < 2) return;
-    const type = data[0] >> 4;
-    // 跳过 remaining length 字段
-    let pos = 1;
-    while (pos < data.length && (data[pos] & 0x80)) pos++;
-    pos++; // 最后一个 remaining length 字节
-
-    if (type === 2) {
-      // CONNACK — 检查返回码
-      const returnCode = pos < data.length ? data[pos + 1] : 1;
-      if (returnCode === 0) {
-        this.connected = true;
-        this._connectFired = true;
-        if (this.handlers.connect) this.handlers.connect();
-      } else {
-        if (this.handlers.error) this.handlers.error(new Error('MQTT 拒绝连接，错误码: ' + returnCode));
-      }
-    } else if (type === 3) {
-      // PUBLISH — 收到消息
-      const topicLen = (data[pos] << 8) | data[pos + 1];
-      pos += 2;
-      const topic = this._decodeStr(data, pos, topicLen);
-      pos += topicLen;
-      const payload = this._decodeStr(data, pos, data.length - pos);
-      if (this.handlers.message) this.handlers.message(topic, payload);
-    } else if (type === 9) {
-      // SUBACK — 忽略
-    }
-  }
-
-  // ---- 编码工具 ----
-
-  _encodeStr(s) {
-    const bytes = new TextEncoder().encode(s);
-    const len = bytes.length;
-    const result = new Uint8Array(2 + len);
-    result[0] = (len >> 8) & 0xFF;
-    result[1] = len & 0xFF;
-    result.set(bytes, 2);
-    return result;
-  }
-
-  _decodeStr(data, offset, length) {
-    return new TextDecoder().decode(data.slice(offset, offset + length));
-  }
-
-  _encodeRemLen(len) {
-    const bytes = [];
-    do {
-      let byte = len & 0x7F;
-      len >>= 7;
-      if (len > 0) byte |= 0x80;
-      bytes.push(byte);
-    } while (len > 0);
-    return new Uint8Array(bytes);
-  }
-
-  _concat(...arrays) {
-    const len = arrays.reduce((s, a) => s + a.length, 0);
-    const result = new Uint8Array(len);
-    let off = 0;
-    for (const a of arrays) {
-      result.set(a, off);
-      off += a.length;
-    }
-    return result;
-  }
-}
-
-// ============================================================
-//  配置
-// ============================================================
-
-// 公共 MQTT broker 列表（按优先级尝试）
-const MQTT_BROKERS = [
-  'wss://broker.emqx.io:8084/mqtt',          // EMQX 中国
-  'wss://test.mosquitto.org:8081/mqtt',      // Mosquitto
-  'wss://mqtt.eclipseprojects.io:443/mqtt',  // Eclipse
-  'wss://broker.hivemq.com:8884/mqtt',       // HiveMQ
-];
-
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.qq.com:3478' },
-    { urls: 'stun:stun.miwifi.com:3478' },
-  ]
+// PeerJS 信令服务器配置
+const PEER_CONFIG = {
+  host: '0.peerjs.com',
+  port: 443,
+  secure: true,
+  debug: 0,
 };
 
-const TOPIC_PREFIX = 'nbgame/';
-
-let pc = null;
-let dc = null;
-let mqtt = null;
+let peer = null;        // PeerJS 实例
+let conn = null;        // DataConnection
 let msgHandler = null;
 let statusHandler = null;
-let roomCode = '';
 
 // ============================================================
-//  MQTT 连接
+//  工具
 // ============================================================
-
-async function mqttConnect() {
-  const clientId = 'nb_' + Math.random().toString(36).slice(2, 10);
-
-  // 逐个尝试 broker
-  for (const brokerUrl of MQTT_BROKERS) {
-    try {
-      const client = await tryConnect(brokerUrl, clientId);
-      return client;
-    } catch (e) {
-      // 继续尝试下一个
-    }
-  }
-  throw new Error('无法连接信令服务，请检查网络或开启梯子');
-}
-
-function tryConnect(brokerUrl, clientId) {
-  return new Promise((resolve, reject) => {
-    const client = new MiniMqtt(brokerUrl, clientId);
-
-    const timer = setTimeout(() => {
-      client.close();
-      reject(new Error('超时'));
-    }, 6000);
-
-    client.on('connect', () => {
-      clearTimeout(timer);
-      resolve(client);
-    });
-
-    client.on('error', () => {
-      clearTimeout(timer);
-      client.close();
-      reject(new Error('连接失败'));
-    });
-
-    client.connect();
-  });
-}
 
 function genRoomCode() {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -250,183 +31,212 @@ function emitStatus(s, data = {}) {
 }
 
 // ============================================================
-//  DataChannel 处理
+//  DataConnection 设置
 // ============================================================
 
-function setupDataChannel(channel) {
-  channel.onopen = () => {
-    closeMqtt();
-    emitStatus('connected');
-  };
+function setupConnection(c) {
+  conn = c;
 
-  channel.onclose = () => {
+  conn.on('open', () => {
+    emitStatus('connected');
+  });
+
+  conn.on('data', (data) => {
+    if (msgHandler) {
+      try {
+        // PeerJS data 可能是字符串或对象
+        const msg = typeof data === 'string' ? JSON.parse(data) : data;
+        msgHandler(msg);
+      } catch {}
+    }
+  });
+
+  conn.on('close', () => {
     emitStatus('disconnected');
     if (msgHandler) msgHandler({ type: 'disconnected', payload: {} });
-  };
+  });
 
-  channel.onmessage = (event) => {
-    if (msgHandler) {
-      try { msgHandler(JSON.parse(event.data)); } catch {}
-    }
-  };
-
-  channel.onerror = () => { emitStatus('error'); };
-}
-
-function closeMqtt() {
-  if (mqtt) { try { mqtt.close(); } catch {} mqtt = null; }
+  conn.on('error', () => {
+    emitStatus('error');
+  });
 }
 
 // ============================================================
 //  公开 API
 // ============================================================
 
+/**
+ * 【房主】创建房间
+ * @returns {Promise<string>} 4 位房间号
+ */
 export async function hostCreate() {
   cleanup();
 
-  mqtt = await mqttConnect();
-  roomCode = genRoomCode();
-
-  mqtt.subscribe(TOPIC_PREFIX + roomCode + '/guest');
-
-  pc = new RTCPeerConnection(RTC_CONFIG);
-  dc = pc.createDataChannel('game', { ordered: true });
-  setupDataChannel(dc);
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      mqtt.publish(TOPIC_PREFIX + roomCode + '/host', JSON.stringify({
-        type: 'ice',
-        candidate: e.candidate.candidate,
-        sdpMid: e.candidate.sdpMid,
-        sdpMLineIndex: e.candidate.sdpMLineIndex,
-      }));
-    }
-  };
-
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  mqtt.publish(TOPIC_PREFIX + roomCode + '/host', JSON.stringify({
-    type: 'offer',
-    sdp: offer.sdp,
-  }));
+  const code = genRoomCode();
+  const peerId = 'nb-' + code;
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('等待客机加入超时'));
-    }, 60000);
+    peer = new Peer(peerId, PEER_CONFIG);
 
-    mqtt.on('message', (topic, payload) => {
-      try {
-        const msg = JSON.parse(payload);
-        if (msg.type === 'answer') {
-          clearTimeout(timeout);
-          handleAnswer(msg);
-          emitStatus('guest_joined');
-          resolve(roomCode);
-        } else if (msg.type === 'ice') {
-          handleRemoteIce(msg);
-        }
-      } catch {}
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('信令服务器连接超时，请开启梯子'));
+    }, 15000);
+
+    peer.on('open', () => {
+      clearTimeout(timer);
+      emitStatus('room_created');
+      resolve(code);
+    });
+
+    peer.on('error', (err) => {
+      clearTimeout(timer);
+      cleanup();
+      let msg = '信令服务错误';
+      if (err.type === 'unavailable-id') {
+        msg = '房间号已被占用，请重试';
+      } else if (err.type === 'network') {
+        msg = '网络连接失败，请检查梯子';
+      } else if (err.type === 'server-error') {
+        msg = '信令服务器错误，请稍后重试';
+      }
+      reject(new Error(msg));
+    });
+
+    // 等待客机连接
+    peer.on('connection', (c) => {
+      setupConnection(c);
     });
   });
 }
 
-async function handleAnswer(msg) {
-  await pc.setRemoteDescription(
-    new RTCSessionDescription({ type: 'answer', sdp: msg.sdp })
-  );
-}
-
-async function handleRemoteIce(msg) {
-  try {
-    await pc.addIceCandidate(new RTCIceCandidate({
-      candidate: msg.candidate,
-      sdpMid: msg.sdpMid,
-      sdpMLineIndex: msg.sdpMLineIndex,
-    }));
-  } catch {}
-}
-
+/**
+ * 【客机】加入房间
+ * @param {string} code — 4 位房间号
+ */
 export async function guestJoin(code) {
   cleanup();
 
-  mqtt = await mqttConnect();
-  roomCode = code;
-
-  pc = new RTCPeerConnection(RTC_CONFIG);
-
-  pc.ondatachannel = (event) => {
-    dc = event.channel;
-    setupDataChannel(dc);
-  };
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      mqtt.publish(TOPIC_PREFIX + roomCode + '/guest', JSON.stringify({
-        type: 'ice',
-        candidate: e.candidate.candidate,
-        sdpMid: e.candidate.sdpMid,
-        sdpMLineIndex: e.candidate.sdpMLineIndex,
-      }));
-    }
-  };
-
-  mqtt.subscribe(TOPIC_PREFIX + roomCode + '/host');
+  const hostId = 'nb-' + code;
+  const myId = 'nb-g-' + code + '-' + Math.random().toString(36).slice(2, 6);
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('未找到该房间，请确认房间号正确'));
-    }, 30000);
+    peer = new Peer(myId, PEER_CONFIG);
+    let done = false;
 
-    mqtt.on('message', async (topic, payload) => {
-      try {
-        const msg = JSON.parse(payload);
-        if (msg.type === 'offer') {
-          clearTimeout(timeout);
-          await handleOffer(msg);
-          emitStatus('answer_sent');
-          resolve(roomCode);
-        } else if (msg.type === 'ice') {
-          handleRemoteIce(msg);
+    const timer = setTimeout(() => {
+      if (!done) {
+        cleanup();
+        reject(new Error('未找到该房间，请确认房间号'));
+      }
+    }, 15000);
+
+    peer.on('open', () => {
+      if (done) return;
+
+      const c = peer.connect(hostId, { reliable: true });
+
+      c.on('open', () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        setupConnection(c);
+        resolve(code);
+      });
+
+      c.on('error', () => {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          cleanup();
+          reject(new Error('连接失败，房间不存在'));
         }
-      } catch {}
+      });
+    });
+
+    peer.on('error', (err) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      cleanup();
+      let msg = '信令服务错误';
+      if (err.type === 'peer-unavailable') {
+        msg = '未找到该房间';
+      } else if (err.type === 'network') {
+        msg = '网络连接失败，请检查梯子';
+      }
+      reject(new Error(msg));
     });
   });
 }
 
-async function handleOffer(msg) {
-  await pc.setRemoteDescription(
-    new RTCSessionDescription({ type: 'offer', sdp: msg.sdp })
-  );
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  mqtt.publish(TOPIC_PREFIX + roomCode + '/guest', JSON.stringify({
-    type: 'answer',
-    sdp: answer.sdp,
-  }));
+/**
+ * 【客机】加入房间 — 另一种场景：房主连接客机
+ * 当客机先创建 peer 后，房主来连接客机
+ * 暂不使用，保留备用
+ */
+export async function guestJoinWaitForHost(code) {
+  cleanup();
+
+  const myId = 'nb-' + code + '-guest';
+
+  return new Promise((resolve, reject) => {
+    peer = new Peer(myId, PEER_CONFIG);
+    let done = false;
+
+    const timer = setTimeout(() => {
+      if (!done) {
+        cleanup();
+        reject(new Error('等待房主连接超时'));
+      }
+    }, 30000);
+
+    peer.on('open', () => {
+      if (done) return;
+    });
+
+    peer.on('connection', (c) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      setupConnection(c);
+      resolve(code);
+    });
+
+    peer.on('error', (err) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error('信令服务错误: ' + (err.message || '未知')));
+    });
+  });
 }
 
+/** 发送消息到对方 */
 export function send(type, payload = {}) {
-  if (dc && dc.readyState === 'open') {
-    dc.send(JSON.stringify({ type, payload }));
+  if (conn && conn.open) {
+    conn.send(JSON.stringify({ type, payload }));
   }
 }
 
+/** 注册消息回调 */
 export function onMessage(handler) { msgHandler = handler; }
-export function onStatus(handler) { statusHandler = handler; }
-export function isConnected() { return dc && dc.readyState === 'open'; }
 
+/** 注册状态回调 */
+export function onStatus(handler) { statusHandler = handler; }
+
+/** 是否已连接 */
+export function isConnected() { return conn && conn.open; }
+
+/** 断开连接 */
 export function disconnect() {
-  closeMqtt();
-  if (dc) { try { dc.close(); } catch {} dc = null; }
-  if (pc) { try { pc.close(); } catch {} pc = null; }
+  if (conn) { try { conn.close(); } catch {} conn = null; }
+  if (peer) { try { peer.destroy(); } catch {} peer = null; }
   if (statusHandler) statusHandler('disconnected', {});
 }
 
 function cleanup() {
-  closeMqtt();
-  if (dc) { try { dc.close(); } catch {} dc = null; }
-  if (pc) { try { pc.close(); } catch {} pc = null; }
+  if (conn) { try { conn.close(); } catch {} conn = null; }
+  if (peer) { try { peer.destroy(); } catch {} peer = null; }
 }
