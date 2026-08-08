@@ -3,7 +3,7 @@
  * 负责将游戏状态同步到界面，不包含交互逻辑。
  */
 
-import { getCharacter, getSkillForNumber } from './game-core.js';
+import { getCharacter, getSkillForNumber, CHARACTERS } from './game-core.js';
 
 // DOM 引用缓存
 const dom = {};
@@ -11,10 +11,12 @@ const dom = {};
 /** 初始化 DOM 引用 */
 export function initDomRefs() {
   dom.screens = {
-    lobby:   document.getElementById('screen-lobby'),
-    waiting: document.getElementById('screen-waiting'),
-    game:    document.getElementById('screen-game'),
-    result:  document.getElementById('screen-result'),
+    lobby:     document.getElementById('screen-lobby'),
+    waiting:   document.getElementById('screen-waiting'),
+    coinflip:  document.getElementById('screen-coinflip'),
+    charselect:document.getElementById('screen-charselect'),
+    game:      document.getElementById('screen-game'),
+    result:    document.getElementById('screen-result'),
   };
 
   // Lobby
@@ -29,6 +31,21 @@ export function initDomRefs() {
   // P2P views
   dom.p2pHostView  = document.getElementById('p2p-host-view');
   dom.p2pGuestView = document.getElementById('p2p-guest-view');
+
+  // Coin flip
+  dom.coinflipSubtitle   = document.getElementById('coinflip-subtitle');
+  dom.coin               = document.getElementById('coin');
+  dom.coinflipButtons    = document.getElementById('coinflip-buttons');
+  dom.coinflipWaiting    = document.getElementById('coinflip-waiting');
+  dom.coinflipResult     = document.getElementById('coinflip-result');
+  dom.coinflipResultText = document.getElementById('coinflip-result-text');
+  dom.coinflipTurnText   = document.getElementById('coinflip-turn-text');
+  dom.btnCoinflipNext    = document.getElementById('btn-coinflip-next');
+
+  // Character select
+  dom.charCards         = document.getElementById('char-cards');
+  dom.btnConfirmChar    = document.getElementById('btn-confirm-char');
+  dom.charselectWaiting = document.getElementById('charselect-waiting');
 
   // Game — opponent
   dom.opponentAvatarZone = document.getElementById('opponent-avatar-zone');
@@ -199,6 +216,130 @@ export function showResult(won, reason) {
 /** 更新等待页状态 */
 export function setWaitingStatus(msg) {
   if (dom.waitingStatus) dom.waitingStatus.textContent = msg;
+}
+
+// ============================================================
+//  硬币猜测
+// ============================================================
+
+/** 配置硬币猜测界面 */
+export function setupCoinFlipUI(role) {
+  if (role === 'guesser') {
+    dom.coinflipSubtitle.textContent = '选择正面或反面，决定谁先手';
+    dom.coinflipButtons.classList.remove('hidden');
+    dom.coinflipWaiting.classList.add('hidden');
+  } else {
+    dom.coinflipSubtitle.textContent = '对方正在猜测硬币…';
+    dom.coinflipButtons.classList.add('hidden');
+    dom.coinflipWaiting.classList.remove('hidden');
+  }
+  dom.coinflipResult.classList.add('hidden');
+  if (dom.btnCoinflipNext) dom.btnCoinflipNext.classList.add('hidden');
+}
+
+/** 显示硬币结果 + 翻转动画 */
+export function showCoinFlipResult(result, guestGuess, correct, firstName, onDone) {
+  dom.coinflipButtons.classList.add('hidden');
+  dom.coinflipWaiting.classList.add('hidden');
+  dom.coinflipResult.classList.remove('hidden');
+
+  const faceName = result === 'heads' ? '正面' : '反面';
+  dom.coinflipResultText.textContent = correct
+    ? `✅ ${guestGuess === 'heads' ? '正面' : '反面'}！猜对了！`
+    : `❌ 是${faceName}，猜错了`;
+  dom.coinflipTurnText.textContent = `${firstName} 先手`;
+  if (dom.btnCoinflipNext) dom.btnCoinflipNext.classList.remove('hidden');
+
+  // 硬币动画
+  dom.coin.classList.add('flipping');
+  dom.coin.addEventListener('animationend', function handler() {
+    dom.coin.classList.remove('flipping');
+    dom.coin.removeEventListener('animationend', handler);
+  }, { once: true });
+
+  // 点击"继续"按钮
+  if (dom.btnCoinflipNext) {
+    const nextHandler = () => {
+      dom.btnCoinflipNext.removeEventListener('click', nextHandler);
+      if (onDone) onDone();
+    };
+    dom.btnCoinflipNext.addEventListener('click', nextHandler);
+  }
+}
+
+// ============================================================
+//  角色选择
+// ============================================================
+
+/** 渲染角色选择卡片 */
+export function renderCharSelect() {
+  const container = dom.charCards;
+  container.innerHTML = '';
+
+  Object.values(CHARACTERS).forEach(char => {
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    card.dataset.charId = char.id;
+
+    let skillsHtml = '';
+    Object.entries(char.skills).forEach(([num, skill]) => {
+      skillsHtml += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
+    });
+
+    card.innerHTML = `
+      <div class="char-avatar">${char.avatar}</div>
+      <div class="char-name">${char.name}</div>
+      <div class="char-hp">❤️ HP: ${char.maxHp}</div>
+      <div class="char-skills">${skillsHtml}</div>
+    `;
+
+    card.addEventListener('click', () => {
+      container.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      dom.btnConfirmChar.disabled = false;
+    });
+
+    container.appendChild(card);
+  });
+
+  dom.btnConfirmChar.disabled = true;
+  if (dom.charselectWaiting) dom.charselectWaiting.classList.add('hidden');
+}
+
+// ============================================================
+//  技能特效
+// ============================================================
+
+/**
+ * 显示技能特效
+ * @param {Element} targetEl — 目标 DOM 元素
+ * @param {string} text — 浮动文字
+ * @param {string} color — 文字颜色
+ * @param {string} flashClass — 闪烁 CSS class
+ */
+export function showSkillEffect(targetEl, text, color, flashClass) {
+  if (!targetEl) return;
+
+  // 1. 头像闪烁
+  if (flashClass) {
+    targetEl.classList.add(flashClass);
+    setTimeout(() => targetEl.classList.remove(flashClass), 600);
+  }
+
+  // 2. 浮动文字
+  if (text) {
+    const rect = targetEl.getBoundingClientRect();
+    const floatEl = document.createElement('div');
+    floatEl.className = 'float-text';
+    floatEl.textContent = text;
+    floatEl.style.cssText = `
+      left: ${rect.left + rect.width / 2 - 40}px;
+      top: ${rect.top - 10}px;
+      color: ${color};
+    `;
+    document.body.appendChild(floatEl);
+    setTimeout(() => floatEl.remove(), 1300);
+  }
 }
 
 /** 获取 DOM 元素（供 drag-handler 使用） */

@@ -112,6 +112,57 @@
 </div>
 
 <!-- ============================================================
+     硬币猜测页
+     ============================================================ -->
+<div id="screen-coinflip" class="screen">
+  <div class="coinflip-container">
+    <h2 class="coinflip-title">🪙 猜硬币</h2>
+    <p class="coinflip-subtitle" id="coinflip-subtitle">选择正面或反面，决定谁先手</p>
+
+    <!-- 硬币动画区 -->
+    <div class="coin" id="coin">
+      <div class="coin-face coin-front">正</div>
+      <div class="coin-face coin-back">反</div>
+    </div>
+
+    <!-- 猜测按钮（猜测方可见） -->
+    <div class="coinflip-buttons" id="coinflip-buttons">
+      <button class="coinflip-btn coinflip-btn-heads" data-guess="heads">🪙 正面</button>
+      <button class="coinflip-btn coinflip-btn-tails" data-guess="tails">🔄 反面</button>
+    </div>
+
+    <!-- 等待提示（抛硬币方可见） -->
+    <p class="coinflip-waiting hidden" id="coinflip-waiting">等待对方猜测…</p>
+
+    <!-- 结果 -->
+    <div class="coinflip-result hidden" id="coinflip-result">
+      <p class="coinflip-result-text" id="coinflip-result-text"></p>
+      <p class="coinflip-turn-text" id="coinflip-turn-text"></p>
+      <button id="btn-coinflip-next" class="btn btn-primary" style="margin-top:12px;">继续 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     角色选择页
+     ============================================================ -->
+<div id="screen-charselect" class="screen">
+  <div class="charselect-container">
+    <h2 class="charselect-title">选择角色</h2>
+    <p class="charselect-subtitle" id="charselect-subtitle">选择你的出战角色</p>
+
+    <!-- 角色卡片（JS 动态生成） -->
+    <div class="char-cards" id="char-cards"></div>
+
+    <!-- 确认按钮 -->
+    <div class="charselect-status">
+      <button id="btn-confirm-char" class="btn btn-primary" disabled>确认选择</button>
+      <p id="charselect-waiting" class="waiting-status hidden">等待对手选择角色…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      对局页：主游戏界面
      ============================================================ -->
 <div id="screen-game" class="screen">

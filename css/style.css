@@ -342,6 +342,110 @@ body::before {
 }
 
 /* ============================================================
+   Coin Flip Screen
+   ============================================================ */
+.coinflip-container {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px; gap: 24px;
+}
+.coinflip-title  { font-size: 28px; font-weight: 800; color: var(--text); text-align: center; }
+.coinflip-subtitle { font-size: 14px; color: var(--text-dim); text-align: center; }
+
+/* Coin visual */
+.coin { width: 120px; height: 120px; position: relative; margin: 16px 0; }
+.coin.flipping { animation: coin-flip 2s ease-in-out; }
+@keyframes coin-flip {
+  0%   { transform: rotateY(0deg) rotateX(0deg); }
+  25%  { transform: rotateY(360deg) rotateX(180deg); }
+  50%  { transform: rotateY(720deg) rotateX(360deg); }
+  75%  { transform: rotateY(1080deg) rotateX(180deg); }
+  100% { transform: rotateY(1440deg) rotateX(0deg); }
+}
+.coin-face {
+  position: absolute; inset: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 900; backface-visibility: hidden;
+  border: 3px solid rgba(255,255,255,0.2);
+}
+.coin-front {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #7B5B00;
+}
+.coin-back {
+  background: linear-gradient(135deg, #C0C0C0, #808080);
+  color: #333;
+  transform: rotateY(180deg);
+}
+.coinflip-buttons { display: flex; gap: 16px; margin-top: 8px; }
+.coinflip-btn {
+  padding: 16px 32px; border-radius: var(--radius);
+  font-size: 18px; font-weight: 700; cursor: pointer;
+  border: 2px solid transparent; transition: all .2s;
+  font-family: inherit; background: transparent;
+}
+.coinflip-btn-heads {
+  border-color: rgba(255,215,0,.4); color: #FFD700;
+}
+.coinflip-btn-heads:hover { background: rgba(255,215,0,.15); transform: scale(1.05); }
+.coinflip-btn-tails {
+  border-color: rgba(192,192,192,.4); color: #C0C0C0;
+}
+.coinflip-btn-tails:hover { background: rgba(192,192,192,.15); transform: scale(1.05); }
+.coinflip-waiting {
+  font-size: 16px; color: var(--text-dim);
+  animation: pulse 1.2s infinite alternate;
+}
+.coinflip-result { text-align: center; }
+.coinflip-result-text { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.coinflip-turn-text  { font-size: 14px; color: var(--text-dim); }
+
+/* ============================================================
+   Character Selection Screen
+   ============================================================ */
+.charselect-container {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px 16px; gap: 20px;
+}
+.charselect-title    { font-size: 24px; font-weight: 800; color: var(--text); }
+.charselect-subtitle { font-size: 14px; color: var(--text-dim); }
+.char-cards {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  width: 100%; max-width: 500px;
+}
+.char-card {
+  width: 220px;
+  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
+  border: 2px solid rgba(255,255,255,.08);
+  border-radius: var(--radius-lg); padding: 20px 16px;
+  cursor: pointer; transition: all .25s;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.char-card:hover {
+  border-color: rgba(255,255,255,.2);
+  transform: translateY(-4px); box-shadow: var(--shadow);
+}
+.char-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 24px var(--primary-glow);
+  background: rgba(124,111,240,.08);
+}
+.char-card .char-avatar { font-size: 48px; }
+.char-card .char-name   { font-size: 18px; font-weight: 700; color: var(--text); }
+.char-card .char-hp     { font-size: 13px; color: var(--text-dim); }
+.char-card .char-skills { font-size: 12px; color: var(--text-dim); line-height: 1.6; text-align: left; width: 100%; }
+.char-card .skill-num   {
+  display: inline-block; width: 20px; height: 20px; line-height: 20px;
+  text-align: center; border-radius: 6px;
+  background: rgba(255,255,255,.1); font-weight: 700;
+  font-size: 12px; margin-right: 6px;
+}
+.charselect-status {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+
+/* ============================================================
    Game Screen — Layout
    ============================================================ */
 #screen-game {
@@ -511,6 +615,63 @@ body::before {
 .result-title    { font-size: 28px; font-weight: 800; color: var(--text); }
 .result-detail   { font-size: 14px; color: var(--text-dim); text-align: center; line-height: 1.6; }
 .result-buttons  { display: flex; gap: 12px; margin-top: 16px; }
+
+/* ============================================================
+   Skill Effects
+   ============================================================ */
+
+/* 头像闪光 */
+.avatar-flash-hit {
+  animation: flash-hit 0.5s ease-out;
+}
+@keyframes flash-hit {
+  0%   { filter: drop-shadow(0 0 12px rgba(248,113,113,.8)); transform: scale(1.15); }
+  100% { filter: drop-shadow(0 0 0 rgba(248,113,113,0)); transform: scale(1); }
+}
+.avatar-flash-heal {
+  animation: flash-heal 0.5s ease-out;
+}
+@keyframes flash-heal {
+  0%   { filter: drop-shadow(0 0 12px rgba(52,211,153,.8)); transform: scale(1.15); }
+  100% { filter: drop-shadow(0 0 0 rgba(52,211,153,0)); transform: scale(1); }
+}
+.avatar-flash-shield {
+  animation: flash-shield 0.5s ease-out;
+}
+@keyframes flash-shield {
+  0%   { filter: drop-shadow(0 0 12px rgba(34,211,238,.8)); transform: scale(1.15); }
+  100% { filter: drop-shadow(0 0 0 rgba(34,211,238,0)); transform: scale(1); }
+}
+.avatar-flash-buff {
+  animation: flash-buff 0.5s ease-out;
+}
+@keyframes flash-buff {
+  0%   { filter: drop-shadow(0 0 12px rgba(251,191,36,.8)); transform: scale(1.15); }
+  100% { filter: drop-shadow(0 0 0 rgba(251,191,36,0)); transform: scale(1); }
+}
+
+/* 浮动文字 */
+.float-text {
+  position: fixed; z-index: 400;
+  font-size: 22px; font-weight: 900;
+  pointer-events: none; white-space: nowrap;
+  animation: float-up 1.2s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+@keyframes float-up {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  50%  { opacity: .8; transform: translateY(-30px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-70px) scale(.8); }
+}
+
+/* 技能卡片脉冲 */
+.num-card-mine.skill-used {
+  animation: skill-pulse 0.6s ease-out;
+}
+@keyframes skill-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(251,191,36,.6); }
+  100% { box-shadow: 0 0 0 20px rgba(251,191,36,0); }
+}
 
 /* Buttons (shared) */
 .btn {

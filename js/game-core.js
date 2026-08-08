@@ -13,7 +13,7 @@ export const CHARACTERS = {
   basic: {
     id: 'basic',
     name: '基础使者',
-    maxHp: 10,
+    maxHp: 4,
     avatar: '🧙',
     color: '#6C5CE7',          // 角色主题色
     skills: {
@@ -21,9 +21,22 @@ export const CHARACTERS = {
       // target: 'opponent_number' → 加法（这是默认操作，无需在 skills 中定义）
       // target: 'opponent_body'  → 拖到对方头像
       // target: 'self_body'      → 拖到自己头像
-      4: { type: 'damage', target: 'opponent_body', value: 1, desc: '造成 1 点伤害' },
-      5: { type: 'shield', target: 'self_body', value: 1, desc: '获得 1 点护盾' },
-      9: { type: 'heal',   target: 'self_body', value: 1, desc: '回复 1 点 HP' },
+      4: { type: 'damage', target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
+      5: { type: 'shield', target: 'self_body', value: 1, desc: '护盾：获得 1 点护盾' },
+      9: { type: 'heal',   target: 'self_body', value: 1, desc: '圣泉：回复 1 点 HP' },
+    }
+  },
+  paladin: {
+    id: 'paladin',
+    name: '圣骑士',
+    maxHp: 5,
+    avatar: '🛡️',
+    color: '#E17055',
+    skills: {
+      4: { type: 'damage',        target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
+      5: { type: 'shield_strike', target: 'opponent_body', value: 1, desc: '盾击：自身+1护盾并造成1点伤害' },
+      6: { type: 'buff',          target: 'self_body',     value: 1, desc: '神圣号角：下次攻击伤害+1（上限1）' },
+      9: { type: 'heal',          target: 'self_body',     value: 1, desc: '圣泉：回复 1 点 HP' },
     }
   }
 };
@@ -42,6 +55,7 @@ export function createPlayer(id, name, characterId = 'basic') {
     hp: char.maxHp,
     maxHp: char.maxHp,
     shield: 0,
+    damageBuff: 0,  // 攻击强化层数（神圣号角等），上限1，下次攻击消耗
     numbers: [
       { value: 1, skillReady: false },
       { value: 1, skillReady: false }
@@ -217,11 +231,21 @@ export function useSkill(state, playerIndex, myNumIdx) {
       player.shield += skill.value;
       log = `${player.name} 获得 ${skill.value} 点护盾（当前护盾: ${player.shield}）`;
       break;
-    case 'heal':
+    case 'shield_strike':
+      player.shield += skill.value;
+      log = `${player.name} 发动盾击！获得 ${skill.value} 点护盾（当前: ${player.shield}）。`;
+      log += ' ' + applyDamage(player, opponent, skill.value, player.name, opponent.name);
+      break;
+    case 'buff':
+      player.damageBuff = Math.min((player.damageBuff || 0) + skill.value, 1);
+      log = `${player.name} 吹响神圣号角，下次攻击伤害 +1（当前加成: ${player.damageBuff}）`;
+      break;
+    case 'heal': {
       const healed = Math.min(skill.value, player.maxHp - player.hp);
       player.hp += healed;
       log = `${player.name} 回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`;
       break;
+    }
     default:
       return { error: `未知技能类型: ${skill.type}` };
   }
@@ -248,8 +272,15 @@ export function useSkill(state, playerIndex, myNumIdx) {
  * 造成伤害，护盾优先吸收
  */
 function applyDamage(source, target, damage, sourceName, targetName) {
-  let remaining = damage;
+  // 消费攻击强化
+  const bonus = source.damageBuff || 0;
+  source.damageBuff = 0;
+  let remaining = damage + bonus;
   let logParts = [];
+
+  if (bonus > 0) {
+    logParts.push(`强化攻击 +${bonus}`);
+  }
 
   // 先扣护盾
   if (target.shield > 0) {

@@ -8,6 +8,7 @@
  */
 
 import {
+  CHARACTERS,
   createPlayer, createGameState,
   doAdd, useSkill, endTurn, surrender, resolveDragAction,
   generateId,
@@ -16,7 +17,8 @@ import {
 import {
   initDomRefs, showScreen, renderGameState,
   updateTimer, setRoomCode, showToast, showResult,
-  getDom,
+  getDom, setupCoinFlipUI, showCoinFlipResult,
+  renderCharSelect, showSkillEffect,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
@@ -36,6 +38,15 @@ const app = {
   turnSecondsLeft: 30,
   opponentDisconnected: false,
   p2pRoomCode: '',        // 当前 P2P 房间号
+
+  // 硬币猜测
+  p2pPhase: null,         // 'coin_flip' | 'char_select'
+  coinFlipFirstTurn: 0,
+  _localName2: '玩家2',   // 本地模式对手名字
+
+  // 角色选择
+  myCharacterId: null,
+  opponentCharacterId: null,
 };
 
 // ============================================================
@@ -81,6 +92,16 @@ function bindEvents() {
   dom.btnLeaveRoom?.addEventListener('click', onLeaveRoom);
   document.getElementById('btn-leave-room-guest')?.addEventListener('click', onLeaveRoom);
 
+  // 猜硬币按钮
+  document.getElementById('coinflip-buttons')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.coinflip-btn');
+    if (!btn) return;
+    onCoinGuess(btn.dataset.guess);
+  });
+
+  // 角色选择确认
+  document.getElementById('btn-confirm-char')?.addEventListener('click', onConfirmCharSelect);
+
   // 游戏内
   dom.btnEndTurn  .addEventListener('click', handleEndTurn);
   dom.btnSurrender.addEventListener('click', handleSurrender);
@@ -108,9 +129,15 @@ function getNickname() {
   return name || '玩家' + (Math.floor(Math.random() * 90) + 10);
 }
 
-/** 本地对战 — 直接开始，不需要服务器 */
+/** 本地对战 — 先猜硬币，再选角色，然后开始 */
 function onLocalPlay() {
-  startLocalGame(getNickname());
+  const name = getNickname();
+  app.mode = 'local';
+  app.myPlayerName = name;
+  app.myPlayerIndex = 0;
+  app._localName2 = '玩家2';
+  showScreen('coinflip');
+  setupCoinFlipUI('guesser');
 }
 
 /** P2P 房主：创建房间，自动信令连接 */
@@ -184,11 +211,14 @@ function setupP2PHandlers() {
   onStatus((status, data) => {
     switch (status) {
       case 'connected':
-        // 双方都连接后，房主启动游戏
+        // 双方连接后进入猜硬币环节
         if (app.mode === 'p2p_host') {
-          startP2PGameAsHost();
+          app.p2pPhase = 'coin_flip';
+          showScreen('coinflip');
+          setupCoinFlipUI('flipper');
+          send('coin_flip_start', {});
         }
-        // 客机等待房主发来 game_start
+        // 客机等待房主发来 coin_flip_start
         break;
       case 'disconnected':
         if (app.gameState && app.gameState.phase === 'playing') {
@@ -205,17 +235,65 @@ function handleP2PMessage(msg) {
   const { type, payload = {} } = msg;
 
   switch (type) {
-    // ---- 客机收到 ----
+    // ---- 硬币猜测 ----
+    case 'coin_flip_start':
+      if (app.mode === 'p2p_guest') {
+        app.p2pPhase = 'coin_flip';
+        showScreen('coinflip');
+        setupCoinFlipUI('guesser');
+      }
+      break;
+
+    case 'coin_guess':
+      if (app.mode === 'p2p_host' && app.p2pPhase === 'coin_flip') {
+        const guestGuess = payload.guess;
+        const result = Math.random() < 0.5 ? 'heads' : 'tails';
+        const correct = guestGuess === result;
+        // Host = index 0, Guest = index 1
+        app.coinFlipFirstTurn = correct ? 1 : 0;
+        const firstName = app.coinFlipFirstTurn === 0 ? app.myPlayerName : '对手';
+        showCoinFlipResult(result, guestGuess, correct, firstName, () => {
+          app.p2pPhase = 'char_select';
+          startCharSelect();
+        });
+        send('coin_result', { result, guestGuess, correct, firstTurn: app.coinFlipFirstTurn });
+      }
+      break;
+
+    case 'coin_result':
+      if (app.mode === 'p2p_guest' && app.p2pPhase === 'coin_flip') {
+        const { result, guestGuess, correct, firstTurn } = payload;
+        app.coinFlipFirstTurn = firstTurn;
+        const firstName = firstTurn === 1 ? app.myPlayerName : '对手';
+        showCoinFlipResult(result, guestGuess, correct, firstName, () => {
+          app.p2pPhase = 'char_select';
+          startCharSelect();
+        });
+      }
+      break;
+
+    // ---- 角色选择 ----
+    case 'char_select':
+      if (app.mode === 'p2p_host' && app.p2pPhase === 'char_select') {
+        app.opponentCharacterId = payload.characterId;
+        tryStartP2PGame();
+      } else if (app.mode === 'p2p_guest' && app.p2pPhase === 'char_select') {
+        app.opponentCharacterId = payload.characterId;
+      }
+      break;
+
+    // ---- 客机收到：游戏开始 ----
     case 'game_start':
       if (app.mode === 'p2p_guest') {
         app.myPlayerIndex = payload.yourIndex;
         app.gameState = rebuildGameState(payload.gameState);
-        setRoomCode('P2P');
+        setRoomCode(app.p2pRoomCode || 'P2P');
         showScreen('game');
         renderGameState(app.gameState, app.myPlayerIndex);
         app.turnSecondsLeft = 30;
         startLocalTimer();
-        showToast('游戏开始！');
+        const pName = app.gameState.players[app.coinFlipFirstTurn]?.name || '';
+        showToast(`游戏开始！${pName} 先手`, 2000);
       }
       break;
 
@@ -276,6 +354,20 @@ function handleGuestAction(type, payload) {
     return;
   }
 
+  // 技能特效（客机使用技能，房主视角显示）
+  if (type === 'use_skill' && gs && result && result.newState) {
+    const guestNum = gs.players[1].numbers[payload.myNumIdx];
+    if (guestNum) {
+      const guestChar = CHARACTERS[gs.players[1].characterId];
+      const guestSkill = guestChar?.skills[guestNum.value];
+      if (guestSkill) {
+        // 客机(index 1)技能 → 'opponent_body'=打房主(host's avatar), 'self_body'=自己(opponent avatar)
+        const targetEl = guestSkill.target === 'opponent_body' ? getDom().myAvatar : getDom().opponentAvatar;
+        triggerSkillEffect(guestSkill.type, guestSkill.value, targetEl);
+      }
+    }
+  }
+
   if (result && result.newState) {
     app.gameState = result.newState;
     renderGameState(app.gameState, app.myPlayerIndex);
@@ -309,6 +401,7 @@ function rebuildGameState(s) {
       hp: p.hp,
       maxHp: p.maxHp,
       shield: p.shield,
+      damageBuff: p.damageBuff || 0,
       numbers: p.numbers.map(n => ({ value: n.value, skillReady: n.skillReady })),
     })),
     currentTurn: s.currentTurn,
@@ -316,6 +409,7 @@ function rebuildGameState(s) {
     turnActionsUsed: s.turnActionsUsed,
     additionsUsed: s.additionsUsed || 0,
     winner: s.winner,
+    winReason: s.winReason || null,
   };
 }
 
@@ -329,6 +423,7 @@ function sanitizeGameState(gs) {
       hp: p.hp,
       maxHp: p.maxHp,
       shield: p.shield,
+      damageBuff: p.damageBuff || 0,
       numbers: p.numbers.map(n => ({ value: n.value, skillReady: n.skillReady })),
     })),
     currentTurn: gs.currentTurn,
@@ -339,12 +434,92 @@ function sanitizeGameState(gs) {
   };
 }
 
-/** 房主：启动 P2P 游戏 */
-function startP2PGameAsHost() {
-  const p1 = createPlayer(generateId(), app.myPlayerName, 'basic');
-  const p2 = createPlayer(generateId(), '对手', 'basic');
+// ============================================================
+//  硬币猜测
+// ============================================================
+
+/** 根据技能类型显示视觉特效 */
+function triggerSkillEffect(skillType, skillValue, targetEl) {
+  const effects = {
+    damage:        { text: `-${skillValue}`,   color: '#F87171', flash: 'avatar-flash-hit' },
+    shield_strike: { text: `🛡-${skillValue}`, color: '#F87171', flash: 'avatar-flash-hit' },
+    shield:        { text: `+${skillValue}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
+    heal:          { text: `+${skillValue}❤️`, color: '#34D399', flash: 'avatar-flash-heal' },
+    buff:          { text: `⚔+${skillValue}`,  color: '#FBBF24', flash: 'avatar-flash-buff' },
+  };
+  const eff = effects[skillType];
+  if (eff) showSkillEffect(targetEl, eff.text, eff.color, eff.flash);
+}
+
+function onCoinGuess(guess) {
+  // 本地模式
+  if (app.mode === 'local') {
+    const result = Math.random() < 0.5 ? 'heads' : 'tails';
+    const correct = guess === result;
+    const firstTurn = correct ? 0 : 1;
+    const firstName = firstTurn === 0 ? app.myPlayerName : app._localName2;
+    app.coinFlipFirstTurn = firstTurn;
+    showCoinFlipResult(result, guess, correct, firstName, () => {
+      startLocalGameWithFlip();
+    });
+    return;
+  }
+
+  // P2P 客机模式
+  if (app.mode === 'p2p_guest') {
+    send('coin_guess', { guess });
+    const dom = getDom();
+    dom.coinflipButtons.classList.add('hidden');
+    dom.coinflipWaiting.classList.remove('hidden');
+    dom.coinflipSubtitle.textContent = '等待对方抛硬币…';
+  }
+}
+
+// ============================================================
+//  角色选择
+// ============================================================
+
+function startCharSelect() {
+  showScreen('charselect');
+  renderCharSelect();
+  app.myCharacterId = null;
+  if (app.mode === 'p2p_host') app.opponentCharacterId = null;
+}
+
+function onConfirmCharSelect() {
+  const selectedEl = document.querySelector('.char-card.selected');
+  if (!selectedEl) { showToast('请先选择一个角色'); return; }
+  app.myCharacterId = selectedEl.dataset.charId;
+
+  // 禁用选择
+  document.querySelectorAll('.char-card').forEach(c => { c.style.pointerEvents = 'none'; });
+  getDom().btnConfirmChar.disabled = true;
+
+  if (app.mode === 'p2p_host') {
+    send('char_select', { characterId: app.myCharacterId });
+    tryStartP2PGame();
+  } else if (app.mode === 'p2p_guest') {
+    send('char_select', { characterId: app.myCharacterId });
+    getDom().charselectWaiting.classList.remove('hidden');
+  } else if (app.mode === 'local') {
+    // 本地模式：直接开始游戏
+    startLocalGameWithFlip();
+  }
+}
+
+// ============================================================
+//  游戏启动
+// ============================================================
+
+/** 房主：确认双方都选了角色后启动 */
+function tryStartP2PGame() {
+  if (!app.myCharacterId || !app.opponentCharacterId) return;
+
+  const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
+  const p2 = createPlayer(generateId(), '对手', app.opponentCharacterId);
 
   app.gameState = createGameState(p1, p2);
+  app.gameState.currentTurn = app.coinFlipFirstTurn;
   app.myPlayerIndex = 0;
   app.myPlayerId = p1.id;
   setRoomCode(app.p2pRoomCode || 'P2P');
@@ -352,9 +527,9 @@ function startP2PGameAsHost() {
   showScreen('game');
   renderGameState(app.gameState, 0);
   startLocalTimer();
-  showToast(`游戏开始！${p1.name} 先手`, 2000);
+  const firstName = app.gameState.players[app.coinFlipFirstTurn]?.name || '';
+  showToast(`游戏开始！${firstName} 先手`, 2000);
 
-  // 发送初始状态给客机
   send('game_start', {
     yourIndex: 1,
     gameState: sanitizeGameState(app.gameState),
@@ -362,23 +537,27 @@ function startP2PGameAsHost() {
   });
 }
 
-// ============================================================
-//  本地对战
-// ============================================================
+/** 本地模式：猜硬币后启动游戏 */
+function startLocalGameWithFlip() {
+  const firstTurn = app.coinFlipFirstTurn;
+  const charId = app.myCharacterId || 'basic';
 
-function startLocalGame(name1, name2 = '玩家2') {
-  app.mode = 'local';
-  const p1 = createPlayer(generateId(), name1, 'basic');
-  const p2 = createPlayer(generateId(), name2, 'basic');
+  const p1 = createPlayer(generateId(), app.myPlayerName, charId);
+  const p2 = createPlayer(generateId(), app._localName2, charId);
 
   app.gameState = createGameState(p1, p2);
-  app.myPlayerIndex = 0;
+  app.gameState.currentTurn = firstTurn;
+  app.myPlayerIndex = firstTurn;
   setRoomCode('本地');
   showScreen('game');
   renderGameState(app.gameState, app.myPlayerIndex);
   startLocalTimer();
-  showToast(`${p1.name} 先手！拖拽数字开始操作`, 2500);
+  showToast(`${app.gameState.players[firstTurn]?.name} 先手！拖拽数字开始操作`, 2500);
 }
+
+// ============================================================
+//  本地对战
+// ============================================================
 
 // ============================================================
 //  拖拽回调
@@ -422,6 +601,19 @@ function handleDragDropLocal(numIndex, dropTargetType, targetNumIdx) {
   } else { return; }
 
   if (opResult.error) { showToast(opResult.error); return; }
+
+  // 技能特效
+  if (result.action === 'skill') {
+    const num = gs.players[app.myPlayerIndex].numbers[result.params.myNumIdx];
+    if (num) {
+      const char = CHARACTERS[gs.players[app.myPlayerIndex].characterId];
+      const skill = char?.skills[num.value];
+      if (skill) {
+        const targetEl = skill.target === 'opponent_body' ? getDom().opponentAvatar : getDom().myAvatar;
+        triggerSkillEffect(skill.type, skill.value, targetEl);
+      }
+    }
+  }
 
   app.gameState = opResult.newState;
   renderGameState(app.gameState, app.myPlayerIndex);
@@ -474,6 +666,19 @@ function executeHostAction(dragResult) {
   } else { return; }
 
   if (opResult.error) { showToast(opResult.error); return; }
+
+  // 技能特效（房主执行）
+  if (dragResult.action === 'skill') {
+    const num = gs.players[app.myPlayerIndex].numbers[dragResult.params.myNumIdx];
+    if (num) {
+      const char = CHARACTERS[gs.players[app.myPlayerIndex].characterId];
+      const skill = char?.skills[num.value];
+      if (skill) {
+        const targetEl = skill.target === 'opponent_body' ? getDom().opponentAvatar : getDom().myAvatar;
+        triggerSkillEffect(skill.type, skill.value, targetEl);
+      }
+    }
+  }
 
   app.gameState = opResult.newState;
   renderGameState(app.gameState, app.myPlayerIndex);
