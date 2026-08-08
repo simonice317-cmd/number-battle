@@ -392,11 +392,14 @@ export function useCombo(state, playerIndex) {
     return { error: '组合技条件不满足' };
   }
 
-  // 消耗所有 required 数字（有 skillReady 的也消耗掉，避免单技能和 combo 同时使用）
+  // 消耗所有 required 数字：重置为 1（组合技消耗数字，需要重新凑）
   const logParts = [`${player.name} 发动 ${combo.name}！`];
   for (const val of combo.required) {
     const num = player.numbers.find(n => n.value === val);
-    if (num) num.skillReady = false;
+    if (num) {
+      num.value = 1;
+      num.skillReady = false;
+    }
   }
 
   // 执行所有效果
