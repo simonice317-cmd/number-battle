@@ -61,20 +61,91 @@ function waitForIceComplete(connection, timeout = 8000) {
   });
 }
 
-/** 编码：SDP + ICE 候选 → 可复制字符串 */
-function encodeSession(desc, candidates) {
-  return btoa(JSON.stringify({
-    v: 1,
-    t: desc.type,          // 'offer' | 'answer'
+// ============================================================
+//  gzip 压缩工具（浏览器内置 API，无需依赖）
+// ============================================================
+
+/** 将字符串 gzip 压缩后转 base64 */
+async function gzipToBase64(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  writer.write(data);
+  writer.close();
+
+  const reader = cs.readable.getReader();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  const len = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(len);
+  let off = 0;
+  for (const c of chunks) { result.set(c, off); off += c.length; }
+
+  let binary = '';
+  for (let i = 0; i < result.length; i++) binary += String.fromCharCode(result[i]);
+  return btoa(binary);
+}
+
+/** 将 base64 解压回字符串 */
+async function base64ToGunzip(b64) {
+  const binary = atob(b64);
+  const data = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i);
+
+  const ds = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  writer.write(data);
+  writer.close();
+
+  const reader = ds.readable.getReader();
+  const decoder = new TextDecoder();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(decoder.decode(value, { stream: true }));
+  }
+  chunks.push(decoder.decode()); // flush
+  return chunks.join('');
+}
+
+// ============================================================
+//  编码 / 解码（gzip 压缩 + 版本标记）
+// ============================================================
+
+const COMPRESS_MARKER = 'Z:';  // 压缩版前缀
+
+/** 编码：SDP + ICE 候选 → 压缩 → 可复制短码 */
+async function encodeSession(desc, candidates) {
+  const json = JSON.stringify({
+    t: desc.type,
     s: desc.sdp,
     c: candidates,
-  }));
+  });
+  const compressed = await gzipToBase64(json);
+  return COMPRESS_MARKER + compressed;
 }
 
 /** 解码：可复制字符串 → { t, s, c } */
-function decodeSession(encoded) {
+async function decodeSession(encoded) {
+  const raw = encoded.trim();
+  // 新版压缩格式
+  if (raw.startsWith(COMPRESS_MARKER)) {
+    try {
+      const json = await base64ToGunzip(raw.slice(COMPRESS_MARKER.length));
+      const obj = JSON.parse(json);
+      return { t: obj.t, s: obj.s, c: obj.c };
+    } catch { return null; }
+  }
+  // 兼容旧版未压缩格式
   try {
-    return JSON.parse(atob(encoded.trim()));
+    return JSON.parse(atob(raw));
   } catch {
     return null;
   }
@@ -134,7 +205,7 @@ export async function hostCreateOffer() {
   const candidates = await waitForIceComplete(pc);
 
   emitStatus('offer_ready');
-  return encodeSession(pc.localDescription, candidates);
+  return await encodeSession(pc.localDescription, candidates);
 }
 
 /**
@@ -142,7 +213,7 @@ export async function hostCreateOffer() {
  * @param {string} encodedAnswer — 客机回传的确认码
  */
 export async function hostAcceptAnswer(encodedAnswer) {
-  const session = decodeSession(encodedAnswer);
+  const session = await decodeSession(encodedAnswer);
   if (!session || session.t !== 'answer') {
     throw new Error('确认码无效，请检查是否完整复制');
   }
@@ -165,7 +236,7 @@ export async function hostAcceptAnswer(encodedAnswer) {
  */
 export async function guestJoin(encodedOffer) {
   cleanup();
-  const session = decodeSession(encodedOffer);
+  const session = await decodeSession(encodedOffer);
   if (!session || session.t !== 'offer') {
     throw new Error('连接码无效，请检查是否完整复制');
   }
@@ -195,7 +266,7 @@ export async function guestJoin(encodedOffer) {
   const candidates = await waitForIceComplete(pc);
 
   emitStatus('answer_ready');
-  return encodeSession(pc.localDescription, candidates);
+  return await encodeSession(pc.localDescription, candidates);
 }
 
 /** 发送消息到对方 */
