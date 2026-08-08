@@ -20,6 +20,7 @@ import {
   updateTimer, setRoomCode, showToast, showResult,
   getDom, setupCoinFlipUI, showCoinFlipResult,
   renderCharSelect, showSkillEffect,
+  showSkillPopup, hideSkillPopup,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
@@ -105,6 +106,18 @@ function bindEvents() {
 
   // 组合技按钮
   document.getElementById('btn-combo')?.addEventListener('click', handleCombo);
+
+  // 技能查看按钮
+  document.getElementById('btn-skills')?.addEventListener('click', () => {
+    const gs = app.gameState;
+    if (!gs || !gs.players) return;
+    const me = gs.players[app.myPlayerIndex];
+    if (me) showSkillPopup(me);
+  });
+
+  // 技能弹窗关闭
+  document.getElementById('skill-popup-close')?.addEventListener('click', hideSkillPopup);
+  document.querySelector('.skill-popup-bg')?.addEventListener('click', hideSkillPopup);
 
   // 游戏内
   dom.btnEndTurn  .addEventListener('click', handleEndTurn);

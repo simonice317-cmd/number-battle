@@ -72,6 +72,12 @@ export function initDomRefs() {
   dom.turnLabel      = document.getElementById('turn-label');
   dom.actionCounter  = document.getElementById('action-counter');
   dom.btnCombo       = document.getElementById('btn-combo');
+  dom.btnSkills      = document.getElementById('btn-skills');
+  dom.skillPopup     = document.getElementById('skill-popup');
+  dom.skillPopupTitle = document.getElementById('skill-popup-title');
+  dom.skillPopupList  = document.getElementById('skill-popup-list');
+  dom.skillPopupClose = document.getElementById('skill-popup-close');
+  dom.skillPopupBg    = document.querySelector('.skill-popup-bg');
   dom.btnEndTurn     = document.getElementById('btn-end-turn');
   dom.btnSurrender   = document.getElementById('btn-surrender');
   dom.roomCodeBadge  = document.getElementById('room-code-display');
@@ -168,9 +174,11 @@ export function renderGameState(state, myPlayerIndex) {
   if (isMyTurn && state.phase === 'playing') {
     dom.btnEndTurn.classList.remove('hidden');
     dom.btnSurrender.classList.remove('hidden');
+    if (dom.btnSkills) dom.btnSkills.classList.remove('hidden');
   } else {
     dom.btnEndTurn.classList.add('hidden');
     dom.btnSurrender.classList.add('hidden');
+    if (dom.btnSkills) dom.btnSkills.classList.add('hidden');
   }
 
   // 组合技按钮
@@ -361,4 +369,38 @@ export function showSkillEffect(targetEl, text, color, flashClass) {
 /** 获取 DOM 元素（供 drag-handler 使用） */
 export function getDom() {
   return dom;
+}
+
+// ============================================================
+//  技能弹窗
+// ============================================================
+
+/** 显示技能弹窗 */
+export function showSkillPopup(player) {
+  if (!dom.skillPopup) return;
+  const char = getCharacter(player);
+  if (!char) return;
+
+  dom.skillPopupTitle.textContent = `${char.avatar} ${char.name} 技能`;
+
+  let html = '';
+  Object.entries(char.skills).forEach(([num, skill]) => {
+    html += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
+  });
+
+  // 如果有组合技，额外显示
+  if (char.combo) {
+    const comboNums = char.combo.required.join(' + ');
+    html += `<div class="skill-combo">💥 <span class="skill-num" style="background:rgba(245,158,11,.25);">${comboNums}</span>${char.combo.desc}</div>`;
+  }
+
+  dom.skillPopupList.innerHTML = html;
+  dom.skillPopup.classList.remove('hidden');
+}
+
+/** 隐藏技能弹窗 */
+export function hideSkillPopup() {
+  if (dom.skillPopup) {
+    dom.skillPopup.classList.add('hidden');
+  }
 }

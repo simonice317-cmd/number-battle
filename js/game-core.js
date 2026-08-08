@@ -204,8 +204,10 @@ export function doAdd(state, playerIndex, myNumIdx, targetNumIdx) {
   myNum.value = newValue;
 
   // 检查新值是否有对应技能 → 设置 skillReady
+  // combo.required 中的数字也需要亮（如弓箭手的6），即使没有独立技能
   const char = getCharacter(player);
-  if (char.skills[newValue] !== undefined) {
+  const isComboValue = char.combo?.required?.includes(newValue);
+  if (char.skills[newValue] !== undefined || isComboValue) {
     myNum.skillReady = true;
   } else {
     myNum.skillReady = false;
@@ -303,9 +305,10 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       const stolenValue = opponent.numbers[targetNumIdx].value;
       const oldValue = num.value;
       num.value = stolenValue;
-      // 检查新值是否有对应技能
+      // 检查新值是否有对应技能（combo.required 中的数字也需要亮）
       const char = getCharacter(player);
-      if (char.skills[num.value] !== undefined) {
+      const isComboValue = char.combo?.required?.includes(num.value);
+      if (char.skills[num.value] !== undefined || isComboValue) {
         num.skillReady = true;
       } else {
         num.skillReady = false;

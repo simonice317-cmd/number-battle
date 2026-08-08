@@ -207,6 +207,7 @@
     <div id="turn-label" class="turn-label">你的回合</div>
     <div id="action-counter" class="action-counter">本回合操作: 0/1</div>
 	    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
+		<button id="btn-skills" class="btn btn-skills hidden">📋 技能</button>
     <button id="btn-end-turn" class="btn btn-end-turn">跳过回合 →</button>
     <button id="btn-surrender" class="btn btn-surrender">🏳️ 投降</button>
   </div>
@@ -245,6 +246,16 @@
 
   <!-- 提示浮层 -->
   <div id="toast" class="toast hidden"></div>
+
+	  <!-- 技能查看弹窗 -->
+	  <div id="skill-popup" class="skill-popup hidden">
+	    <div class="skill-popup-bg"></div>
+	    <div class="skill-popup-card">
+	      <h3 id="skill-popup-title"></h3>
+	      <div id="skill-popup-list"></div>
+	      <button id="skill-popup-close" class="btn btn-secondary">关闭</button>
+	    </div>
+	  </div>
 </div>
 
 <!-- ============================================================
