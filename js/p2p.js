@@ -5,12 +5,20 @@
  * 你只需把 4 位房间号发给朋友，无需复制粘贴。
  */
 
-// PeerJS 信令服务器配置
+// PeerJS 信令 + ICE 配置
+// STUN 服务器：优先用国内可访问的（QQ 腾讯 + 小米），Google 作备用
+const ICE_SERVERS = [
+  { urls: 'stun:stun.qq.com:3478' },
+  { urls: 'stun:stun.miwifi.com:3478' },
+  { urls: 'stun:stun.l.google.com:19302' },
+];
+
 const PEER_CONFIG = {
   host: '0.peerjs.com',
   port: 443,
   secure: true,
   debug: 0,
+  config: { iceServers: ICE_SERVERS },
 };
 
 let peer = null;        // PeerJS 实例
