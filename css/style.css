@@ -227,18 +227,6 @@ body::before {
 .join-area .input-wrap { flex: 1; }
 .join-area .lobby-btn--confirm { white-space: nowrap; }
 
-/* --- Buttons --- */
-.btn {
-  padding: 14px 24px; border: none; border-radius: 12px;
-  font-size: 16px; font-weight: 700; cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.2s;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.btn:active { transform: scale(0.96); }
-.btn-primary   { background: var(--primary); color: #FFF; }
-.btn-secondary { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
-.btn-danger    { background: var(--danger); color: #FFF; }
-
 /* ============================================================
    Waiting Screen
    ============================================================ */
@@ -247,14 +235,6 @@ body::before {
   align-items: center; justify-content: center; padding: 24px; gap: 24px;
 }
 .waiting-container h2 { font-size: 20px; font-weight: 700; color: var(--text); }
-.room-code-display {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--card-border); border-radius: var(--radius-lg);
-  padding: 36px 56px; box-shadow: var(--shadow);
-}
-.room-code-label { font-size: 12px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
 .room-code-big   { font-size: 56px; font-weight: 900; letter-spacing: 16px;
   background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
@@ -435,7 +415,7 @@ body::before {
 .char-card .char-name   { font-size: 18px; font-weight: 700; color: var(--text); }
 .char-card .char-hp     { font-size: 13px; color: var(--text-dim); }
 .char-card .char-skills { font-size: 12px; color: var(--text-dim); line-height: 1.6; text-align: left; width: 100%; }
-.char-card .skill-num   {
+.skill-num {
   display: inline-block; width: 20px; height: 20px; line-height: 20px;
   text-align: center; border-radius: 6px;
   background: rgba(255,255,255,.1); font-weight: 700;
@@ -508,8 +488,6 @@ body::before {
 }
 .opponent-hp-bar { background: var(--hp-opponent); }
 .my-hp-bar       { background: var(--hp-my); }
-.hp-fill { display: none; }
-
 .hp-text { font-size: 13px; font-weight: 700; min-width: 40px; text-align: right; color: var(--text); }
 .shield-badge {
   font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px;
@@ -659,17 +637,12 @@ body::before {
   text-align: left;
 }
 #skill-popup-list .skill-line { margin-bottom: 2px; }
-#skill-popup-list .skill-num {
-  display: inline-block; width: 22px; height: 22px; line-height: 22px;
-  text-align: center; border-radius: 6px;
-  background: rgba(255,255,255,.1); font-weight: 700;
-  font-size: 12px; margin-right: 8px;
-}
-#skill-popup-list .skill-combo {
+#skill-popup-list .skill-combo-info {
   margin-top: 8px; padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,.1);
   color: #F59E0B; font-weight: 600;
 }
+#skill-popup-list .combo-num { background: rgba(245,158,11,.25); }
 
 /* My info */
 .my-info { padding: 8px 16px 16px; flex-direction: row-reverse; }
@@ -709,49 +682,17 @@ body::before {
    Skill Effects
    ============================================================ */
 
-/* 头像闪光 */
-.avatar-flash-hit {
-  animation: flash-hit 0.5s ease-out;
+/* 头像闪光 — 统一关键帧 + CSS 变量 */
+@keyframes avatar-flash {
+  0%   { filter: drop-shadow(0 0 var(--fx-size, 12px) var(--fx-color)); transform: scale(var(--fx-scale, 1.15)); }
+  100% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
 }
-@keyframes flash-hit {
-  0%   { filter: drop-shadow(0 0 12px rgba(248,113,113,.8)); transform: scale(1.15); }
-  100% { filter: drop-shadow(0 0 0 rgba(248,113,113,0)); transform: scale(1); }
-}
-.avatar-flash-heal {
-  animation: flash-heal 0.5s ease-out;
-}
-@keyframes flash-heal {
-  0%   { filter: drop-shadow(0 0 12px rgba(52,211,153,.8)); transform: scale(1.15); }
-  100% { filter: drop-shadow(0 0 0 rgba(52,211,153,0)); transform: scale(1); }
-}
-.avatar-flash-shield {
-  animation: flash-shield 0.5s ease-out;
-}
-@keyframes flash-shield {
-  0%   { filter: drop-shadow(0 0 12px rgba(34,211,238,.8)); transform: scale(1.15); }
-  100% { filter: drop-shadow(0 0 0 rgba(34,211,238,0)); transform: scale(1); }
-}
-.avatar-flash-buff {
-  animation: flash-buff 0.5s ease-out;
-}
-@keyframes flash-buff {
-  0%   { filter: drop-shadow(0 0 12px rgba(251,191,36,.8)); transform: scale(1.15); }
-  100% { filter: drop-shadow(0 0 0 rgba(251,191,36,0)); transform: scale(1); }
-}
-.avatar-flash-pierce {
-  animation: flash-pierce 0.5s ease-out;
-}
-@keyframes flash-pierce {
-  0%   { filter: drop-shadow(0 0 14px rgba(239,68,68,.9)); transform: scale(1.2); }
-  100% { filter: drop-shadow(0 0 0 rgba(239,68,68,0)); transform: scale(1); }
-}
-.avatar-flash-steal {
-  animation: flash-steal 0.5s ease-out;
-}
-@keyframes flash-steal {
-  0%   { filter: drop-shadow(0 0 14px rgba(139,92,246,.9)); transform: scale(1.15); }
-  100% { filter: drop-shadow(0 0 0 rgba(139,92,246,0)); transform: scale(1); }
-}
+.avatar-flash-hit    { --fx-color: rgba(248,113,113,.8); --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-heal   { --fx-color: rgba(52,211,153,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-shield { --fx-color: rgba(34,211,238,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-buff   { --fx-color: rgba(251,191,36,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-pierce { --fx-color: rgba(239,68,68,.9);   --fx-scale: 1.2;  --fx-size: 14px; animation: avatar-flash .5s ease-out; }
+.avatar-flash-steal  { --fx-color: rgba(139,92,246,.9);  --fx-scale: 1.15; --fx-size: 14px; animation: avatar-flash .5s ease-out; }
 
 /* 浮动文字 */
 .float-text {

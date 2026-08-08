@@ -134,6 +134,61 @@ function mod10(n) {
   return ((n % 10) + 10) % 10;
 }
 
+// ---- 内部工具函数 ----
+
+/** 校验玩家行动合法性（doAdd / useSkill / useCombo 共用） */
+function validatePlayerAction(state, playerIndex, opts = {}) {
+  if (state.phase !== 'playing') return { error: '游戏未在进行中' };
+  if (state.currentTurn !== playerIndex) return { error: '不是你的回合' };
+  if (state.turnActionsUsed >= 2) return { error: '本回合操作次数已用完（最多2次）' };
+  if (opts.checkAdditions && state.additionsUsed >= 1) return { error: '本回合已经进行过加法' };
+  return null;
+}
+
+/** deepClone + 提取 player/opponent（doAdd / useSkill / useCombo 共用） */
+function prepareActionState(state, playerIndex) {
+  const newState = deepClone(state);
+  return { newState, player: newState.players[playerIndex], opponent: newState.players[opponentIndex(playerIndex)] };
+}
+
+/** 数字值变更后：解锁 combo + 重算 skillReady */
+function updateNumberValue(player, numObj, newValue) {
+  numObj.value = newValue;
+  player.comboUsed = false;
+  const char = getCharacter(player);
+  numObj.skillReady = char.skills[newValue] !== undefined || char.combo?.required?.includes(newValue);
+}
+
+/** 胜利检查并更新状态 */
+function applyWinCheck(newState) {
+  const winResult = checkWin(newState);
+  if (winResult !== null) {
+    newState.phase = 'finished';
+    newState.winner = winResult;
+    newState.winReason = 'hp_depleted';
+  }
+}
+
+/** 回复 HP（useSkill heal / useCombo heal 共用） */
+function applyHeal(target, amount) {
+  const healed = Math.min(amount, target.maxHp - target.hp);
+  target.hp += healed;
+  return healed;
+}
+
+/** 消费攻击强化 buff，返回加成值 */
+function consumeDamageBuff(source) {
+  const bonus = source.damageBuff || 0;
+  source.damageBuff = 0;
+  return bonus;
+}
+
+/** 行动后：操作数+1，若用满则自动结束回合 */
+function finalizeAction(newState) {
+  newState.turnActionsUsed += 1;
+  if (newState.turnActionsUsed >= 2) switchTurn(newState);
+}
+
 /** 检查数字是否有可用技能 */
 export function hasUsableSkill(player, numIndex) {
   const num = player.numbers[numIndex];
@@ -170,59 +225,23 @@ export function getAvailableActions(player) {
  * @returns {{ newState, log }} 新游戏状态和操作描述
  */
 export function doAdd(state, playerIndex, myNumIdx, targetNumIdx) {
-  if (state.phase !== 'playing') {
-    return { error: '游戏未在进行中' };
-  }
-  if (state.currentTurn !== playerIndex) {
-    return { error: '不是你的回合' };
-  }
-  if (state.additionsUsed >= 1) {
-    return { error: '本回合已经进行过加法' };
-  }
-  if (state.turnActionsUsed >= 2) {
-    return { error: '本回合操作次数已用完（最多2次）' };
-  }
+  const err = validatePlayerAction(state, playerIndex, { checkAdditions: true });
+  if (err) return err;
+  const { newState, player, opponent } = prepareActionState(state, playerIndex);
 
-  const newState = deepClone(state);
-  const player = newState.players[playerIndex];
-  const opponent = newState.players[opponentIndex(playerIndex)];
-
-  // 校验数字索引
-  if (myNumIdx < 0 || myNumIdx >= player.numbers.length) {
-    return { error: '无效的数字索引' };
-  }
-  if (targetNumIdx < 0 || targetNumIdx >= opponent.numbers.length) {
-    return { error: '无效的目标数字索引' };
-  }
+  if (myNumIdx < 0 || myNumIdx >= player.numbers.length) return { error: '无效的数字索引' };
+  if (targetNumIdx < 0 || targetNumIdx >= opponent.numbers.length) return { error: '无效的目标数字索引' };
 
   const myNum = player.numbers[myNumIdx];
   const targetNum = opponent.numbers[targetNumIdx];
-
   const oldValue = myNum.value;
   const newValue = mod10(oldValue + targetNum.value);
 
-  // 更新自己的数字
-  myNum.value = newValue;
-  player.comboUsed = false; // 数字变了，解锁组合技
-
-  // 检查新值是否有对应技能 → 设置 skillReady
-  // combo.required 中的数字也需要亮（如弓箭手的6），即使没有独立技能
-  const char = getCharacter(player);
-  const isComboValue = char.combo?.required?.includes(newValue);
-  if (char.skills[newValue] !== undefined || isComboValue) {
-    myNum.skillReady = true;
-  } else {
-    myNum.skillReady = false;
-  }
-
-  newState.turnActionsUsed += 1;
+  updateNumberValue(player, myNum, newValue);
   newState.additionsUsed += 1;
+  finalizeAction(newState);
 
   const log = `${player.name} 用数字 ${oldValue} + ${targetNum.value} → ${oldValue} 变为 ${newValue}`;
-
-  // 操作总数用满则自动结束回合
-  if (newState.turnActionsUsed >= 2) switchTurn(newState);
-
   return { newState, log };
 }
 
@@ -231,33 +250,17 @@ export function doAdd(state, playerIndex, myNumIdx, targetNumIdx) {
  * @param {number} [targetNumIdx] — 可选，偷取数字时需要指定目标数字索引
  */
 export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
-  if (state.phase !== 'playing') {
-    return { error: '游戏未在进行中' };
-  }
-  if (state.currentTurn !== playerIndex) {
-    return { error: '不是你的回合' };
-  }
-  if (state.turnActionsUsed >= 2) {
-    return { error: '本回合操作次数已用完（最多2次）' };
-  }
+  const err = validatePlayerAction(state, playerIndex);
+  if (err) return err;
+  const { newState, player, opponent } = prepareActionState(state, playerIndex);
 
-  const newState = deepClone(state);
-  const player = newState.players[playerIndex];
-  const opponent = newState.players[opponentIndex(playerIndex)];
-
-  if (myNumIdx < 0 || myNumIdx >= player.numbers.length) {
-    return { error: '无效的数字索引' };
-  }
+  if (myNumIdx < 0 || myNumIdx >= player.numbers.length) return { error: '无效的数字索引' };
 
   const num = player.numbers[myNumIdx];
-  if (!num.skillReady) {
-    return { error: '该数字没有可用技能' };
-  }
+  if (!num.skillReady) return { error: '该数字没有可用技能' };
 
   const skill = getSkillForNumber(player, num.value);
-  if (!skill) {
-    return { error: `数字 ${num.value} 没有对应技能` };
-  }
+  if (!skill) return { error: `数字 ${num.value} 没有对应技能` };
 
   let log = '';
 
@@ -279,15 +282,12 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       log = `${player.name} 吹响神圣号角，下次攻击伤害 +1（当前加成: ${player.damageBuff}）`;
       break;
     case 'heal': {
-      const healed = Math.min(skill.value, player.maxHp - player.hp);
-      player.hp += healed;
+      const healed = applyHeal(player, skill.value);
       log = `${player.name} 回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`;
       break;
     }
     case 'pierce_damage': {
-      // 无视护盾，直接扣血
-      const bonus = player.damageBuff || 0;
-      player.damageBuff = 0;
+      const bonus = consumeDamageBuff(player);
       const totalDmg = skill.value + bonus;
       opponent.hp = Math.max(0, opponent.hp - totalDmg);
       const parts = [];
@@ -297,7 +297,6 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       break;
     }
     case 'steal_number': {
-      // 复制对手数字的值
       if (targetNumIdx === undefined || targetNumIdx === null) {
         return { error: '偷取需要指定目标数字' };
       }
@@ -306,29 +305,18 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       }
       const stolenValue = opponent.numbers[targetNumIdx].value;
       const oldValue = num.value;
-      num.value = stolenValue;
-      player.comboUsed = false; // 数字变了，解锁组合技
-      // 检查新值是否有对应技能（combo.required 中的数字也需要亮）
-      const char = getCharacter(player);
-      const isComboValue = char.combo?.required?.includes(num.value);
-      if (char.skills[num.value] !== undefined || isComboValue) {
-        num.skillReady = true;
-      } else {
-        num.skillReady = false;
-      }
+      updateNumberValue(player, num, stolenValue);
       log = `${player.name} 发动偷取！数字 ${oldValue} → ${stolenValue}（复制对手的 ${stolenValue}）`;
       break;
     }
     case 'steal_resource': {
-      // 优先偷护盾，没有护盾偷血
       if (opponent.shield > 0) {
         opponent.shield -= 1;
         player.shield += 1;
         log = `${player.name} 发动妙手！偷取对手 1 点护盾（自身护盾: ${player.shield}）`;
       } else if (opponent.hp > 0) {
         opponent.hp -= 1;
-        const healed = Math.min(1, player.maxHp - player.hp);
-        player.hp += healed;
+        const healed = applyHeal(player, 1);
         log = `${player.name} 发动妙手！偷取对手 1 点血量（自身 HP: ${player.hp}/${player.maxHp}）`;
       } else {
         log = `${player.name} 发动妙手！但对手没有可偷取的资源`;
@@ -339,20 +327,9 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       return { error: `未知技能类型: ${skill.type}` };
   }
 
-  // 消耗技能
   num.skillReady = false;
-  newState.turnActionsUsed += 1;
-
-  // 检查胜负
-  const winResult = checkWin(newState);
-  if (winResult !== null) {
-    newState.phase = 'finished';
-    newState.winner = winResult;
-    newState.winReason = 'hp_depleted';
-  }
-
-  // 操作总数用满则自动结束回合
-  if (newState.turnActionsUsed >= 2) switchTurn(newState);
+  finalizeAction(newState);
+  applyWinCheck(newState);
 
   return { newState, log };
 }
@@ -377,26 +354,13 @@ export function getComboAvailable(player) {
 
 /** 使用组合技 */
 export function useCombo(state, playerIndex) {
-  if (state.phase !== 'playing') {
-    return { error: '游戏未在进行中' };
-  }
-  if (state.currentTurn !== playerIndex) {
-    return { error: '不是你的回合' };
-  }
-  if (state.turnActionsUsed >= 2) {
-    return { error: '本回合操作次数已用完（最多2次）' };
-  }
-
-  const newState = deepClone(state);
-  const player = newState.players[playerIndex];
-  const opponent = newState.players[opponentIndex(playerIndex)];
+  const err = validatePlayerAction(state, playerIndex);
+  if (err) return err;
+  const { newState, player, opponent } = prepareActionState(state, playerIndex);
 
   const combo = getComboAvailable(player);
-  if (!combo) {
-    return { error: '组合技条件不满足' };
-  }
+  if (!combo) return { error: '组合技条件不满足' };
 
-  // 消耗所有 required 数字并锁定组合技（需做加法才能解锁）
   const logParts = [`${player.name} 发动 ${combo.name}！`];
   player.comboUsed = true;
   for (const val of combo.required) {
@@ -404,15 +368,13 @@ export function useCombo(state, playerIndex) {
     if (num) num.skillReady = false;
   }
 
-  // 执行所有效果
   for (const eff of combo.effects) {
     switch (eff.type) {
       case 'damage':
         logParts.push(applyDamage(player, opponent, eff.value, player.name, opponent.name));
         break;
       case 'heal': {
-        const healed = Math.min(eff.value, player.maxHp - player.hp);
-        player.hp += healed;
+        const healed = applyHeal(player, eff.value);
         logParts.push(`回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`);
         break;
       }
@@ -423,39 +385,22 @@ export function useCombo(state, playerIndex) {
     }
   }
 
-  newState.turnActionsUsed += 1;
+  finalizeAction(newState);
+  applyWinCheck(newState);
 
-  const log = logParts.join(' ');
-
-  // 检查胜负
-  const winResult = checkWin(newState);
-  if (winResult !== null) {
-    newState.phase = 'finished';
-    newState.winner = winResult;
-    newState.winReason = 'hp_depleted';
-  }
-
-  // 操作总数用满则自动结束回合
-  if (newState.turnActionsUsed >= 2) switchTurn(newState);
-
-  return { newState, log };
+  return { newState, log: logParts.join(' ') };
 }
 
 /**
  * 造成伤害，护盾优先吸收
  */
 function applyDamage(source, target, damage, sourceName, targetName) {
-  // 消费攻击强化
-  const bonus = source.damageBuff || 0;
-  source.damageBuff = 0;
+  const bonus = consumeDamageBuff(source);
   let remaining = damage + bonus;
   let logParts = [];
 
-  if (bonus > 0) {
-    logParts.push(`强化攻击 +${bonus}`);
-  }
+  if (bonus > 0) logParts.push(`强化攻击 +${bonus}`);
 
-  // 先扣护盾
   if (target.shield > 0) {
     const blocked = Math.min(target.shield, remaining);
     target.shield -= blocked;
@@ -463,7 +408,6 @@ function applyDamage(source, target, damage, sourceName, targetName) {
     logParts.push(`护盾抵消 ${blocked} 点`);
   }
 
-  // 再扣血
   if (remaining > 0) {
     target.hp = Math.max(0, target.hp - remaining);
     logParts.push(`造成 ${remaining} 点伤害`);

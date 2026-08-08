@@ -237,11 +237,6 @@ export function showResult(won, reason) {
   showScreen('result');
 }
 
-/** 更新等待页状态 */
-export function setWaitingStatus(msg) {
-  if (dom.waitingStatus) dom.waitingStatus.textContent = msg;
-}
-
 // ============================================================
 //  硬币猜测
 // ============================================================
@@ -283,17 +278,26 @@ export function showCoinFlipResult(result, guestGuess, correct, firstName, onDon
 
   // 点击"继续"按钮
   if (dom.btnCoinflipNext) {
-    const nextHandler = () => {
-      dom.btnCoinflipNext.removeEventListener('click', nextHandler);
-      if (onDone) onDone();
-    };
-    dom.btnCoinflipNext.addEventListener('click', nextHandler);
+    dom.btnCoinflipNext.addEventListener('click', () => { if (onDone) onDone(); }, { once: true });
   }
 }
 
 // ============================================================
 //  角色选择
 // ============================================================
+
+/** 生成技能+组合技 HTML（角色选择和弹窗共用） */
+function buildSkillAndComboHtml(char) {
+  let html = '';
+  Object.entries(char.skills).forEach(([num, skill]) => {
+    html += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
+  });
+  if (char.combo) {
+    const comboNums = char.combo.required.join(' + ');
+    html += `<div class="skill-combo-info">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc}</div>`;
+  }
+  return html;
+}
 
 /** 渲染角色选择卡片 */
 export function renderCharSelect() {
@@ -305,23 +309,11 @@ export function renderCharSelect() {
     card.className = 'char-card';
     card.dataset.charId = char.id;
 
-    let skillsHtml = '';
-    Object.entries(char.skills).forEach(([num, skill]) => {
-      skillsHtml += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
-    });
-
-    // 组合技信息（如果有）
-    let comboHtml = '';
-    if (char.combo) {
-      const comboNums = char.combo.required.join(' + ');
-      comboHtml = `<div class="skill-combo-info">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc}</div>`;
-    }
-
     card.innerHTML = `
       <div class="char-avatar">${char.avatar}</div>
       <div class="char-name">${char.name}</div>
       <div class="char-hp">❤️ HP: ${char.maxHp}</div>
-      <div class="char-skills">${skillsHtml}${comboHtml}</div>
+      <div class="char-skills">${buildSkillAndComboHtml(char)}</div>
     `;
 
     card.addEventListener('click', () => {
@@ -387,21 +379,8 @@ export function showSkillPopup(player) {
   if (!dom.skillPopup) return;
   const char = getCharacter(player);
   if (!char) return;
-
   dom.skillPopupTitle.textContent = `${char.avatar} ${char.name} 技能`;
-
-  let html = '';
-  Object.entries(char.skills).forEach(([num, skill]) => {
-    html += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
-  });
-
-  // 如果有组合技，额外显示
-  if (char.combo) {
-    const comboNums = char.combo.required.join(' + ');
-    html += `<div class="skill-combo">💥 <span class="skill-num" style="background:rgba(245,158,11,.25);">${comboNums}</span>${char.combo.desc}</div>`;
-  }
-
-  dom.skillPopupList.innerHTML = html;
+  dom.skillPopupList.innerHTML = buildSkillAndComboHtml(char);
   dom.skillPopup.classList.remove('hidden');
 }
 

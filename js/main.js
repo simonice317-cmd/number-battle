@@ -38,7 +38,6 @@ const app = {
   myPlayerName: '',
   turnTimer: null,
   turnSecondsLeft: 30,
-  opponentDisconnected: false,
   p2pRoomCode: '',        // 当前 P2P 房间号
 
   // 硬币猜测
@@ -136,6 +135,64 @@ function getWinMessage(gs, myIdx) {
   }
   return gs.winner === myIdx ? '对方血量归零' : '你的血量归零';
 }
+
+// ---- 共享工具函数 ----
+
+/** 统一 apply → render → toast → win-check → 尾部逻辑 */
+function applyActionResult(result, opts = {}) {
+  app.gameState = result.newState;
+  renderGameState(app.gameState, app.myPlayerIndex);
+  if (result.log) showToast(result.log, 2000);
+
+  if (app.gameState.phase === 'finished') {
+    stopLocalTimer();
+    const won = app.gameState.winner === app.myPlayerIndex;
+    if (opts.broadcast) send('state_update', { gameState: sanitizeGameState(app.gameState) });
+    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
+    return false; // 游戏结束
+  }
+
+  if (opts.broadcast) send('state_update', { gameState: sanitizeGameState(app.gameState) });
+  if (opts.tail === 'checkTurn') checkLocalTurnSwitch();
+  else if (opts.tail === 'resetTimer' && app.gameState.currentTurn !== app.myPlayerIndex) resetLocalTimerDisplay();
+  return true; // 游戏继续
+}
+
+/** 组合技双闪特效（3 处共用） */
+function showComboEffect(opponentAvatar, myAvatar) {
+  showSkillEffect(opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
+  setTimeout(() => showSkillEffect(myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
+}
+
+/** 拖拽技能特效（local / host / guest 共用） */
+function showDragSkillEffect(gs, params, playerIdx = 0) {
+  const num = gs.players[playerIdx]?.numbers[params.myNumIdx];
+  if (!num) return;
+  const char = CHARACTERS[gs.players[playerIdx].characterId];
+  const skill = char?.skills[num.value];
+  if (!skill) return;
+  const dom = getDom();
+  if (skill.target === 'opponent_number') {
+    const oppPrefix = playerIdx === 0 ? 'oppNum' : 'myNum';
+    const targetCard = dom[`${oppPrefix}${params.targetNumIdx}`];
+    if (targetCard) showSkillEffect(targetCard, '✋复制', '#8B5CF6', null);
+  } else {
+    const targetEl = skill.target === 'opponent_body' ? dom.opponentAvatar : dom.myAvatar;
+    triggerSkillEffect(skill.type, skill.value, targetEl);
+  }
+}
+
+// 技能特效映射表（模块级常量，避免每次重新创建）
+const SKILL_EFFECTS = {
+  damage:         { text: (v) => `-${v}`,   color: '#F87171', flash: 'avatar-flash-hit' },
+  shield_strike:  { text: (v) => `🛡-${v}`, color: '#F87171', flash: 'avatar-flash-hit' },
+  shield:         { text: (v) => `+${v}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
+  heal:           { text: (v) => `+${v}❤`,  color: '#34D399', flash: 'avatar-flash-heal' },
+  buff:           { text: (v) => `⚔+${v}`,  color: '#FBBF24', flash: 'avatar-flash-buff' },
+  pierce_damage:  { text: (v) => `💀-${v}`, color: '#EF4444', flash: 'avatar-flash-pierce' },
+  steal_number:   { text: () => '✋复制',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
+  steal_resource: { text: () => '✋偷取',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
+};
 
 // ============================================================
 //  大厅逻辑
@@ -324,7 +381,7 @@ function handleP2PMessage(msg) {
         if (app.gameState.phase === 'finished') {
           stopLocalTimer();
           const won = app.gameState.winner === app.myPlayerIndex;
-          setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 600);
+          setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
         }
       }
       break;
@@ -375,53 +432,13 @@ function handleGuestAction(type, payload) {
     return;
   }
 
-  // 组合技特效（客机使用组合技，房主视角显示）
-  if (type === 'use_combo' && gs && result && result.newState) {
-    showSkillEffect(getDom().myAvatar, '-2', '#F87171', 'avatar-flash-hit');
-    setTimeout(() => showSkillEffect(getDom().opponentAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
-  }
+  if (!result || !result.newState) return;
 
-  // 技能特效（客机使用技能，房主视角显示）
-  if (type === 'use_skill' && gs && result && result.newState) {
-    const guestNum = gs.players[1].numbers[payload.myNumIdx];
-    if (guestNum) {
-      const guestChar = CHARACTERS[gs.players[1].characterId];
-      const guestSkill = guestChar?.skills[guestNum.value];
-      if (guestSkill) {
-        if (guestSkill.target === 'opponent_number') {
-          // 偷取数字 — 特效目标为房主数字卡片
-          const targetCard = getDom()[`myNum${payload.targetNumIdx}`];
-          if (targetCard) showSkillEffect(targetCard, '✋被偷', '#8B5CF6', null);
-        } else {
-          // 客机(index 1)技能 → 'opponent_body'=打房主(host's avatar), 'self_body'=自己(opponent avatar)
-          const targetEl = guestSkill.target === 'opponent_body' ? getDom().myAvatar : getDom().opponentAvatar;
-          triggerSkillEffect(guestSkill.type, guestSkill.value, targetEl);
-        }
-      }
-    }
-  }
+  // 特效
+  if (type === 'use_combo') showComboEffect(getDom().myAvatar, getDom().opponentAvatar);
+  if (type === 'use_skill') showDragSkillEffect(gs, payload, 1); // guest = player index 1
 
-  if (result && result.newState) {
-    app.gameState = result.newState;
-    renderGameState(app.gameState, app.myPlayerIndex);
-    if (result.log) showToast(result.log, 2000);
-
-    // 广播新状态给客机
-    send('state_update', { gameState: sanitizeGameState(app.gameState) });
-
-    // 检查游戏结束
-    if (app.gameState.phase === 'finished') {
-      stopLocalTimer();
-      const won = app.gameState.winner === app.myPlayerIndex;
-      setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 600);
-      return;
-    }
-
-    // 检查回合是否切换到房主
-    if (app.gameState.currentTurn === app.myPlayerIndex) {
-      resetLocalTimerDisplay();
-    }
-  }
+  applyActionResult(result, { broadcast: true, tail: 'resetTimer' });
 }
 
 /** 从 JSON 重建游戏状态 */
@@ -448,23 +465,9 @@ function rebuildGameState(s) {
 
 /** 将游戏状态序列化（去掉不能 JSON 的字段） */
 function sanitizeGameState(gs) {
-  return {
-    players: gs.players.map(p => ({
-      id: p.id,
-      name: p.name,
-      characterId: p.characterId,
-      hp: p.hp,
-      maxHp: p.maxHp,
-      shield: p.shield,
-      damageBuff: p.damageBuff || 0,
-      numbers: p.numbers.map(n => ({ value: n.value, skillReady: n.skillReady })),
-    })),
-    currentTurn: gs.currentTurn,
-    phase: gs.phase,
-    turnActionsUsed: gs.turnActionsUsed,
-    additionsUsed: gs.additionsUsed || 0,
-    winner: gs.winner,
-  };
+  const s = rebuildGameState(gs);
+  delete s.winReason;
+  return s;
 }
 
 // ============================================================
@@ -473,18 +476,8 @@ function sanitizeGameState(gs) {
 
 /** 根据技能类型显示视觉特效 */
 function triggerSkillEffect(skillType, skillValue, targetEl) {
-  const effects = {
-    damage:         { text: `-${skillValue}`,   color: '#F87171', flash: 'avatar-flash-hit' },
-    shield_strike:  { text: `🛡-${skillValue}`, color: '#F87171', flash: 'avatar-flash-hit' },
-    shield:         { text: `+${skillValue}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
-    heal:           { text: `+${skillValue}❤️`, color: '#34D399', flash: 'avatar-flash-heal' },
-    buff:           { text: `⚔+${skillValue}`,  color: '#FBBF24', flash: 'avatar-flash-buff' },
-    pierce_damage:  { text: `💀-${skillValue}`, color: '#EF4444', flash: 'avatar-flash-pierce' },
-    steal_number:   { text: `✋复制`,           color: '#8B5CF6', flash: 'avatar-flash-steal' },
-    steal_resource: { text: `✋偷取`,           color: '#8B5CF6', flash: 'avatar-flash-steal' },
-  };
-  const eff = effects[skillType];
-  if (eff) showSkillEffect(targetEl, eff.text, eff.color, eff.flash);
+  const eff = SKILL_EFFECTS[skillType];
+  if (eff) showSkillEffect(targetEl, eff.text(skillValue), eff.color, eff.flash);
 }
 
 function onCoinGuess(guess) {
@@ -592,20 +585,12 @@ function startLocalGameWithFlip() {
 }
 
 // ============================================================
-//  本地对战
-// ============================================================
-
-// ============================================================
 //  拖拽回调
 // ============================================================
 
 function handleDragDrop(numIndex, dropTargetType, targetNumIdx) {
   const gs = app.gameState;
   if (!gs || gs.phase !== 'playing') return;
-  if (app.opponentDisconnected) {
-    showToast('对手已断线，无法操作');
-    return;
-  }
 
   // 只在轮到自己时响应
   if (gs.currentTurn !== app.myPlayerIndex) {
@@ -626,7 +611,6 @@ function handleDragDrop(numIndex, dropTargetType, targetNumIdx) {
 function handleDragDropLocal(numIndex, dropTargetType, targetNumIdx) {
   const gs = app.gameState;
   const result = resolveDragAction(gs.players[app.myPlayerIndex], numIndex, dropTargetType, targetNumIdx);
-
   if (result.error) { showToast(result.error); return; }
 
   let opResult;
@@ -638,57 +622,19 @@ function handleDragDropLocal(numIndex, dropTargetType, targetNumIdx) {
 
   if (opResult.error) { showToast(opResult.error); return; }
 
-  // 技能特效
-  if (result.action === 'skill') {
-    const num = gs.players[app.myPlayerIndex].numbers[result.params.myNumIdx];
-    if (num) {
-      const char = CHARACTERS[gs.players[app.myPlayerIndex].characterId];
-      const skill = char?.skills[num.value];
-      if (skill) {
-        if (skill.target === 'opponent_number') {
-          // 偷取数字 — 特效目标为对手数字卡片
-          const targetCard = getDom()[`oppNum${result.params.targetNumIdx}`];
-          if (targetCard) showSkillEffect(targetCard, '✋复制', '#8B5CF6', null);
-        } else {
-          const targetEl = skill.target === 'opponent_body' ? getDom().opponentAvatar : getDom().myAvatar;
-          triggerSkillEffect(skill.type, skill.value, targetEl);
-        }
-      }
-    }
-  }
-
-  app.gameState = opResult.newState;
-  renderGameState(app.gameState, app.myPlayerIndex);
-  showToast(opResult.log, 2000);
-
-  if (app.gameState.phase === 'finished') {
-    stopLocalTimer();
-    const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
-    return;
-  }
-
-  checkLocalTurnSwitch();
+  if (result.action === 'skill') showDragSkillEffect(gs, result.params);
+  applyActionResult(opResult, { tail: 'checkTurn' });
 }
 
 function handleDragDropOnline(numIndex, dropTargetType, targetNumIdx) {
   const gs = app.gameState;
-  if (!gs || gs.phase !== 'playing') return;
-  if (gs.currentTurn !== app.myPlayerIndex) {
-    showToast('不是你的回合');
-    return;
-  }
-
-  // 本地快速验证
   const player = gs.players[app.myPlayerIndex];
   const result = resolveDragAction(player, numIndex, dropTargetType, targetNumIdx);
   if (result.error) { showToast(result.error); return; }
 
   if (app.mode === 'p2p_host') {
-    // 房主：本地执行 → 广播状态给客机
     executeHostAction(result);
   } else if (app.mode === 'p2p_guest') {
-    // 客机：发送操作给房主验证
     if (result.action === 'add') {
       send('do_add', { myNumIdx: result.params.myNumIdx, targetNumIdx: result.params.targetNumIdx });
     } else if (result.action === 'skill') {
@@ -709,43 +655,8 @@ function executeHostAction(dragResult) {
 
   if (opResult.error) { showToast(opResult.error); return; }
 
-  // 技能特效（房主执行）
-  if (dragResult.action === 'skill') {
-    const num = gs.players[app.myPlayerIndex].numbers[dragResult.params.myNumIdx];
-    if (num) {
-      const char = CHARACTERS[gs.players[app.myPlayerIndex].characterId];
-      const skill = char?.skills[num.value];
-      if (skill) {
-        if (skill.target === 'opponent_number') {
-          const targetCard = getDom()[`oppNum${dragResult.params.targetNumIdx}`];
-          if (targetCard) showSkillEffect(targetCard, '✋复制', '#8B5CF6', null);
-        } else {
-          const targetEl = skill.target === 'opponent_body' ? getDom().opponentAvatar : getDom().myAvatar;
-          triggerSkillEffect(skill.type, skill.value, targetEl);
-        }
-      }
-    }
-  }
-
-  app.gameState = opResult.newState;
-  renderGameState(app.gameState, app.myPlayerIndex);
-  showToast(opResult.log, 2000);
-
-  if (app.gameState.phase === 'finished') {
-    stopLocalTimer();
-    const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
-    send('state_update', { gameState: sanitizeGameState(app.gameState) });
-    return;
-  }
-
-  // 发送新状态给客机
-  send('state_update', { gameState: sanitizeGameState(app.gameState) });
-
-  // 如果回合自动切换了
-  if (app.gameState.currentTurn !== app.myPlayerIndex) {
-    resetLocalTimerDisplay();
-  }
+  if (dragResult.action === 'skill') showDragSkillEffect(gs, dragResult.params);
+  applyActionResult(opResult, { broadcast: true, tail: 'resetTimer' });
 }
 
 // ============================================================
@@ -755,70 +666,16 @@ function executeHostAction(dragResult) {
 function handleCombo() {
   const gs = app.gameState;
   if (!gs || gs.phase !== 'playing') return;
-  if (gs.currentTurn !== app.myPlayerIndex) {
-    showToast('不是你的回合');
-    return;
-  }
+  if (gs.currentTurn !== app.myPlayerIndex) { showToast('不是你的回合'); return; }
 
-  if (app.mode === 'p2p_guest') {
-    send('use_combo', {});
-    return;
-  }
+  if (app.mode === 'p2p_guest') { send('use_combo', {}); return; }
 
-  if (app.mode === 'p2p_host') {
-    executeHostCombo();
-    return;
-  }
-
-  // 本地模式
+  const broadcast = app.mode === 'p2p_host';
   const result = useCombo(gs, app.myPlayerIndex);
   if (result.error) { showToast(result.error); return; }
 
-  // 组合技特效（伤害+治疗双闪）
-  showSkillEffect(getDom().opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
-  setTimeout(() => showSkillEffect(getDom().myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
-
-  app.gameState = result.newState;
-  renderGameState(app.gameState, app.myPlayerIndex);
-  showToast(result.log, 2000);
-
-  if (app.gameState.phase === 'finished') {
-    stopLocalTimer();
-    const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
-    return;
-  }
-
-  checkLocalTurnSwitch();
-}
-
-/** 房主执行组合技并广播 */
-function executeHostCombo() {
-  const gs = app.gameState;
-  const result = useCombo(gs, app.myPlayerIndex);
-  if (result.error) { showToast(result.error); return; }
-
-  // 组合技特效
-  showSkillEffect(getDom().opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
-  setTimeout(() => showSkillEffect(getDom().myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
-
-  app.gameState = result.newState;
-  renderGameState(app.gameState, app.myPlayerIndex);
-  showToast(result.log, 2000);
-
-  if (app.gameState.phase === 'finished') {
-    stopLocalTimer();
-    const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
-    send('state_update', { gameState: sanitizeGameState(app.gameState) });
-    return;
-  }
-
-  send('state_update', { gameState: sanitizeGameState(app.gameState) });
-
-  if (app.gameState.currentTurn !== app.myPlayerIndex) {
-    resetLocalTimerDisplay();
-  }
+  showComboEffect(getDom().opponentAvatar, getDom().myAvatar);
+  applyActionResult(result, { broadcast, tail: broadcast ? 'resetTimer' : 'checkTurn' });
 }
 
 // ============================================================
@@ -828,69 +685,33 @@ function executeHostCombo() {
 function handleEndTurn() {
   const gs = app.gameState;
   if (!gs || gs.phase !== 'playing') return;
-  if (gs.currentTurn !== app.myPlayerIndex) {
-    showToast('不是你的回合');
-    return;
-  }
+  if (gs.currentTurn !== app.myPlayerIndex) { showToast('不是你的回合'); return; }
 
-  if (app.mode === 'p2p_guest') {
-    send('end_turn', {});
-    return;
-  }
+  if (app.mode === 'p2p_guest') { send('end_turn', {}); return; }
 
-  if (app.mode === 'p2p_host') {
-    const result = endTurn(gs, app.myPlayerIndex);
-    if (result.error) { showToast(result.error); return; }
-    app.gameState = result.newState;
-    renderGameState(app.gameState, app.myPlayerIndex);
-    showToast('回合结束');
-    send('state_update', { gameState: sanitizeGameState(app.gameState) });
-    resetLocalTimerDisplay();
-    return;
-  }
-
-  // 本地模式
+  const broadcast = app.mode === 'p2p_host';
   const result = endTurn(gs, app.myPlayerIndex);
   if (result.error) { showToast(result.error); return; }
   app.gameState = result.newState;
   renderGameState(app.gameState, app.myPlayerIndex);
   showToast('回合结束');
-  checkLocalTurnSwitch();
+  if (broadcast) send('state_update', { gameState: sanitizeGameState(app.gameState) });
+  if (broadcast) resetLocalTimerDisplay();
+  else checkLocalTurnSwitch();
 }
 
 function handleSurrender() {
   const gs = app.gameState;
   if (!gs || gs.phase !== 'playing') return;
-
   if (!confirm('确定要投降吗？')) return;
 
-  if (app.mode === 'p2p_guest') {
-    send('surrender', {});
-    return;
-  }
+  if (app.mode === 'p2p_guest') { send('surrender', {}); return; }
 
-  if (app.mode === 'p2p_host') {
-    const result = surrender(gs, app.myPlayerIndex);
-    if (result.error) { showToast(result.error); return; }
-    app.gameState = result.newState;
-    stopLocalTimer();
-    renderGameState(app.gameState, app.myPlayerIndex);
-    showToast(result.log, 2000);
-    send('state_update', { gameState: sanitizeGameState(app.gameState) });
-    const won = result.newState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, getWinMessage(result.newState, app.myPlayerIndex)), 800);
-    return;
-  }
-
-  // 本地模式
+  const broadcast = app.mode === 'p2p_host';
   const result = surrender(gs, app.myPlayerIndex);
   if (result.error) { showToast(result.error); return; }
-  app.gameState = result.newState;
   stopLocalTimer();
-  renderGameState(app.gameState, app.myPlayerIndex);
-  showToast(result.log, 2000);
-  const won2 = result.newState.winner === app.myPlayerIndex;
-  setTimeout(() => showResult(won2, getWinMessage(result.newState, app.myPlayerIndex)), 800);
+  applyActionResult(result, { broadcast, tail: null });
 }
 
 function checkLocalTurnSwitch() {
@@ -966,29 +787,17 @@ function handleTurnTimeout() {
   const gs = app.gameState;
   if (!gs || gs.phase !== 'playing') return;
 
-  if (app.mode === 'p2p_guest') {
-    send('end_turn', {});
-    return;
-  }
+  if (app.mode === 'p2p_guest') { send('end_turn', {}); return; }
 
-  if (app.mode === 'p2p_host') {
-    const result = endTurn(gs, app.myPlayerIndex);
-    if (result.newState) {
-      app.gameState = result.newState;
-      renderGameState(app.gameState, app.myPlayerIndex);
-      send('state_update', { gameState: sanitizeGameState(app.gameState) });
-      resetLocalTimerDisplay();
-    }
-    return;
-  }
-
-  // 本地模式
+  const broadcast = app.mode === 'p2p_host';
   const result = endTurn(gs, app.myPlayerIndex);
   if (result.newState) {
     app.gameState = result.newState;
     renderGameState(app.gameState, app.myPlayerIndex);
+    if (broadcast) send('state_update', { gameState: sanitizeGameState(app.gameState) });
+    if (broadcast) resetLocalTimerDisplay();
+    else checkLocalTurnSwitch();
   }
-  checkLocalTurnSwitch();
 }
 
 // ============================================================
@@ -1024,7 +833,6 @@ function backToLobby() {
   app.myPlayerIndex = 0;
   app.myPlayerId = null;
   app.myPlayerName = '';
-  app.opponentDisconnected = false;
   app.p2pRoomCode = '';
   showScreen('lobby');
 }
