@@ -21,7 +21,7 @@ import {
   getDom, setupCoinFlipUI, showCoinFlipResult,
   renderCharSelect, showSkillEffect,
   showSkillPopup, hideSkillPopup,
-  showLobbyGuide, setCharLocked,
+  showLobbyGuide, setCharLocked, showTutorial,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
@@ -66,6 +66,13 @@ function init() {
   });
   bindEvents();
   showScreen('lobby');
+
+  // 首次访问自动弹出新手教程
+  try {
+    if (!localStorage.getItem('nb_tutorial_seen')) {
+      setTimeout(() => showTutorial(), 500);
+    }
+  } catch (_) {}
 }
 
 function bindEvents() {
@@ -75,6 +82,9 @@ function bindEvents() {
   dom.btnLocal    .addEventListener('click', onLocalPlay);
   document.getElementById('btn-lobby-guide')?.addEventListener('click', () => {
     showLobbyGuide();
+  });
+  document.getElementById('btn-lobby-tutorial')?.addEventListener('click', () => {
+    showTutorial();
   });
   dom.btnCreate   .addEventListener('click', () => {
     setupP2PHandlers();

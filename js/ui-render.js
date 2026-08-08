@@ -408,7 +408,6 @@ export function showSkillPopup(myPlayer, opponentPlayer) {
 
   dom.skillPopupTitle.textContent = '技能详情';
   // 双栏布局
-  dom.skillPopupList.innerHTML = '';
   dom.skillPopupList.classList.add('skill-popup-columns');
 
   const myCol = document.getElementById('skill-popup-my');
@@ -485,4 +484,127 @@ export function setCharLocked(charId) {
     dom.btnConfirmChar.textContent = '已锁定 ✓';
     dom.btnConfirmChar.disabled = true;
   }
+}
+
+// ============================================================
+//  新手教程
+// ============================================================
+
+let tutorialEl = null;
+let tutorialPage = 0;
+
+const TUTORIAL_PAGES = [
+  {
+    emoji: '👋',
+    title: '欢迎来到数字对战',
+    html: `<p>这是一款<strong>回合制策略对战</strong>游戏。</p>
+<p>你和对手各自拥有<strong>两个数字</strong>和一个<strong>角色技能组</strong>。</p>
+<p>通过拖拽数字发动技能或攻击对手，将对方 <strong>HP 降至 0</strong> 即可获胜。</p>`,
+  },
+  {
+    emoji: '🎮',
+    title: '基本操作',
+    html: `<p><strong>你的回合可以：</strong></p>
+<ol style="text-align:left;line-height:1.8;">
+  <li>拖拽数字到<strong>对手身上</strong> → 造成等值伤害</li>
+  <li>拖拽数字到<strong>对手数字上</strong> → 加法合成<br><small style="color:#888;">（数字相加，每回合限 1 次）</small></li>
+  <li>拖拽数字到<strong>自己身上</strong> → 触发角色技能</li>
+  <li>点击 <strong>💥 组合技</strong> 按钮 → 发动强力组合技</li>
+</ol>
+<p style="color:#888;">每回合最多 <strong>2 次操作</strong></p>`,
+  },
+  {
+    emoji: '🛡️',
+    title: '护盾 & 重伤',
+    html: `<p><strong>🛡️ 护盾</strong>：临时吸收伤害，<span style="color:#F87171;">回合开始时过期清零</span></p>
+<p><strong>💔 重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:#F87171;">永久减少</span></p>
+<p style="font-size:13px;color:#888;">减少量 = floor(伤害值 × 50%)<br>例：受 3 点伤害 → 上限 -1</p>
+<p style="font-size:13px;color:#888;">治疗技能<strong>无法</strong>恢复已损失的上限<br>只有圣骑士的组合技「圣光复苏」可以恢复</p>`,
+  },
+  {
+    emoji: '⚔️',
+    title: '角色 & 组合技',
+    html: `<p>四个角色各有<strong>独特技能</strong>。</p>
+<p>当场上<strong>两个数字</strong>匹配角色的组合技要求时，可发动强力<strong>组合技</strong>。</p>
+<p>点击大厅 <strong>📖 技能图鉴</strong> 查看所有角色详情。</p>
+<p style="color:#FBBF24;">⚡ 善用组合技是逆转战局的关键！</p>`,
+  },
+];
+
+/** 显示新手教程 */
+export function showTutorial() {
+  if (tutorialEl) tutorialEl.remove();
+  tutorialPage = 0;
+
+  tutorialEl = document.createElement('div');
+  tutorialEl.id = 'tutorial-popup';
+  tutorialEl.className = 'skill-popup';
+  tutorialEl.innerHTML = `
+    <div class="skill-popup-bg"></div>
+    <div class="tutorial-popup-card">
+      <div class="tutorial-header">
+        <span class="tutorial-emoji" id="tutorial-emoji"></span>
+        <h3 id="tutorial-title"></h3>
+        <span class="tutorial-counter" id="tutorial-counter"></span>
+      </div>
+      <div class="tutorial-body" id="tutorial-body"></div>
+      <div class="tutorial-footer">
+        <button class="btn btn-secondary tutorial-prev" id="tutorial-prev" style="visibility:hidden;">◀ 上一步</button>
+        <span class="tutorial-dots" id="tutorial-dots"></span>
+        <button class="btn btn-primary tutorial-next" id="tutorial-next">下一步 ▶</button>
+      </div>
+      <button class="btn btn-secondary tutorial-close-btn" style="margin-top:8px;width:100%;">跳过教程</button>
+    </div>
+  `;
+  document.body.appendChild(tutorialEl);
+
+  const bg = tutorialEl.querySelector('.skill-popup-bg');
+  const prevBtn = tutorialEl.querySelector('#tutorial-prev');
+  const nextBtn = tutorialEl.querySelector('#tutorial-next');
+  const closeBtn = tutorialEl.querySelector('.tutorial-close-btn');
+
+  function renderPage() {
+    const page = TUTORIAL_PAGES[tutorialPage];
+    tutorialEl.querySelector('#tutorial-emoji').textContent = page.emoji;
+    tutorialEl.querySelector('#tutorial-title').textContent = page.title;
+    tutorialEl.querySelector('#tutorial-body').innerHTML = page.html;
+    tutorialEl.querySelector('#tutorial-counter').textContent = `${tutorialPage + 1}/${TUTORIAL_PAGES.length}`;
+
+    prevBtn.style.visibility = tutorialPage === 0 ? 'hidden' : 'visible';
+    if (tutorialPage === TUTORIAL_PAGES.length - 1) {
+      nextBtn.textContent = '✓ 开始游戏';
+      nextBtn.classList.add('tutorial-done');
+    } else {
+      nextBtn.textContent = '下一步 ▶';
+      nextBtn.classList.remove('tutorial-done');
+    }
+
+    // 更新圆点
+    const dots = tutorialEl.querySelector('#tutorial-dots');
+    dots.innerHTML = TUTORIAL_PAGES.map((_, i) =>
+      `<span class="tutorial-dot${i === tutorialPage ? ' active' : ''}"></span>`
+    ).join('');
+  }
+
+  function close() {
+    tutorialEl.remove();
+    tutorialEl = null;
+    try { localStorage.setItem('nb_tutorial_seen', '1'); } catch (_) {}
+  }
+
+  bg.addEventListener('click', close);
+  closeBtn.addEventListener('click', close);
+
+  prevBtn.addEventListener('click', () => {
+    if (tutorialPage > 0) { tutorialPage--; renderPage(); }
+  });
+  nextBtn.addEventListener('click', () => {
+    if (tutorialPage < TUTORIAL_PAGES.length - 1) {
+      tutorialPage++; renderPage();
+    } else {
+      close();
+    }
+  });
+
+  renderPage();
 }
