@@ -483,7 +483,7 @@ function onCoinGuess(guess) {
     const firstName = firstTurn === 0 ? app.myPlayerName : app._localName2;
     app.coinFlipFirstTurn = firstTurn;
     showCoinFlipResult(result, guess, correct, firstName, () => {
-      startLocalGameWithFlip();
+      startCharSelect();
     });
     return;
   }
