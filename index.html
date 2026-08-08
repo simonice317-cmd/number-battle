@@ -66,79 +66,44 @@
 </div>
 
 <!-- ============================================================
-     等待页：P2P 连接码交换
+     等待页：P2P 自动连接（MQTT 信令）
      ============================================================ -->
 <div id="screen-waiting" class="screen">
   <div class="waiting-container">
 
-    <!-- 房主视图：生成连接码 + 等待确认码 -->
+    <!-- 房主视图 -->
     <div id="p2p-host-view" class="p2p-view hidden">
       <div class="lobby-header" style="margin-bottom:20px;">
-        <h1 class="game-title" style="font-size:1.5rem;">🔗 创建房间</h1>
+        <h1 class="game-title" style="font-size:1.5rem;">📡 创建房间</h1>
       </div>
-
-      <div class="p2p-step">
-        <span class="p2p-step-num">①</span>
-        <span class="p2p-step-text">复制连接码，发给朋友</span>
+      <p style="color:#636E72;text-align:center;margin:0 0 16px;">
+        把房间号发给朋友，对方输入即可自动连接
+      </p>
+      <div class="room-code-big-wrap">
+        <span id="p2p-room-code-big" class="room-code-big">----</span>
       </div>
-      <div class="code-box" id="code-box-offer">
-        <code id="p2p-offer-code" class="p2p-code">正在生成…</code>
-        <button id="btn-copy-offer" class="btn btn-copy">📋 复制</button>
-      </div>
-      <p class="p2p-copy-hint">👆 点击复制后，通过微信/QQ发给朋友</p>
-
-      <div class="p2p-divider"><span>然后</span></div>
-
-      <div class="p2p-step">
-        <span class="p2p-step-num">②</span>
-        <span class="p2p-step-text">粘贴朋友回传的确认码</span>
-      </div>
-      <div class="input-wrap code-input-wrap">
-        <textarea id="input-answer-code" class="input-field code-textarea"
-          placeholder="在此粘贴朋友回传的确认码…" rows="2"></textarea>
-        <span class="input-bar"></span>
-      </div>
-      <button id="btn-confirm-answer" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
-        确认连接
-      </button>
-      <p id="host-status" class="waiting-status"></p>
+      <p id="host-status" class="waiting-status">正在连接信令服务…</p>
+      <div id="host-waiting-dots" class="waiting-dots hidden"><span>.</span><span>.</span><span>.</span></div>
       <button id="btn-leave-room" class="btn btn-leave">🚪 退出</button>
     </div>
 
-    <!-- 客机视图：粘贴连接码 + 回传确认码 -->
+    <!-- 客机视图 -->
     <div id="p2p-guest-view" class="p2p-view hidden">
       <div class="lobby-header" style="margin-bottom:20px;">
-        <h1 class="game-title" style="font-size:1.5rem;">🔗 加入房间</h1>
+        <h1 class="game-title" style="font-size:1.5rem;">📡 加入房间</h1>
       </div>
-
-      <div class="p2p-step">
-        <span class="p2p-step-num">①</span>
-        <span class="p2p-step-text">粘贴房主发来的连接码</span>
-      </div>
-      <div class="input-wrap code-input-wrap">
-        <textarea id="input-offer-code" class="input-field code-textarea"
-          placeholder="在此粘贴房主发来的连接码…" rows="2"></textarea>
+      <p style="color:#636E72;text-align:center;margin:0 0 16px;">
+        输入房主分享的 4 位房间号
+      </p>
+      <div class="input-wrap code-input-wrap" style="max-width:200px;margin:0 auto 16px;">
+        <input id="input-room-code" class="input-field" type="text"
+          placeholder="房间号" maxlength="4" autocomplete="off"
+          style="text-align:center;font-size:2rem;letter-spacing:8px;font-weight:700;" required>
         <span class="input-bar"></span>
       </div>
-      <button id="btn-join-offer" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
-        连接
+      <button id="btn-join-room" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
+        加入房间
       </button>
-
-      <div id="p2p-guest-answer-section" class="hidden" style="margin-top:16px;">
-        <div class="p2p-divider"><span>然后</span></div>
-
-        <div class="p2p-step">
-          <span class="p2p-step-num">②</span>
-          <span class="p2p-step-text">复制确认码，发回给房主</span>
-        </div>
-        <div class="code-box" id="code-box-answer">
-          <code id="p2p-answer-code" class="p2p-code">正在生成…</code>
-          <button id="btn-copy-answer" class="btn btn-copy">📋 复制</button>
-        </div>
-        <p class="p2p-copy-hint">👆 复制后发回给房主，等待房主确认…</p>
-        <div class="waiting-dots" style="margin:12px 0;"><span>.</span><span>.</span><span>.</span></div>
-      </div>
-
       <p id="guest-status" class="waiting-status"></p>
       <button id="btn-leave-room-guest" class="btn btn-leave">🚪 退出</button>
     </div>
@@ -245,6 +210,8 @@
   </div>
 </div>
 
+<!-- MQTT 信令库 -->
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <!-- 脚本 -->
 <script type="module" src="js/main.js"></script>
 </body>

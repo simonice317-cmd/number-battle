@@ -16,11 +16,11 @@ import {
 import {
   initDomRefs, showScreen, renderGameState,
   updateTimer, setRoomCode, showToast, showResult,
-  setWaitingStatus, getDom,
+  getDom,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
-import { hostCreateOffer, hostAcceptAnswer, guestJoin, send, onMessage, onStatus, disconnect as p2pDisconnect, isConnected } from './p2p.js';
+import { hostCreate, guestJoin, send, onMessage, onStatus, disconnect as p2pDisconnect, isConnected } from './p2p.js';
 
 // ============================================================
 //  应用状态
@@ -35,7 +35,7 @@ const app = {
   turnTimer: null,
   turnSecondsLeft: 30,
   opponentDisconnected: false,
-  p2pAnswerCode: null,    // 客机生成的确认码（等房主确认）
+  p2pRoomCode: '',        // 当前 P2P 房间号
 };
 
 // ============================================================
@@ -62,40 +62,17 @@ function bindEvents() {
     onCreateRoom();
   });
   dom.btnJoinShow .addEventListener('click', () => {
-    // 直接进入等待页的客机视图
     showScreen('waiting');
     const waitDom = getDom();
     waitDom.p2pHostView.classList.add('hidden');
     waitDom.p2pGuestView.classList.remove('hidden');
-    document.getElementById('p2p-guest-answer-section').classList.add('hidden');
     document.getElementById('guest-status').textContent = '';
-    document.getElementById('input-offer-code').value = '';
+    document.getElementById('input-room-code').value = '';
     setupP2PHandlers();
   });
 
-  // P2P 等待页
-  document.getElementById('btn-copy-offer').addEventListener('click', () => {
-    const code = document.getElementById('p2p-offer-code').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-      const btn = document.getElementById('btn-copy-offer');
-      btn.textContent = '✅ 已复制';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 2000);
-    }).catch(() => showToast('复制失败，请手动选择复制'));
-  });
-
-  document.getElementById('btn-copy-answer').addEventListener('click', () => {
-    const code = document.getElementById('p2p-answer-code').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-      const btn = document.getElementById('btn-copy-answer');
-      btn.textContent = '✅ 已复制';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 2000);
-    }).catch(() => showToast('复制失败，请手动选择复制'));
-  });
-
-  document.getElementById('btn-confirm-answer').addEventListener('click', onConfirmAnswer);
-  document.getElementById('btn-join-offer').addEventListener('click', () => {
+  // P2P 等待页 — 客机加入
+  document.getElementById('btn-join-room').addEventListener('click', () => {
     setupP2PHandlers();
     onJoinRoom();
   });
@@ -127,7 +104,7 @@ function onLocalPlay() {
   startLocalGame(getNickname());
 }
 
-/** P2P 房主：创建房间，生成连接码 */
+/** P2P 房主：创建房间，自动信令连接 */
 async function onCreateRoom() {
   const name = getNickname();
   try {
@@ -135,56 +112,47 @@ async function onCreateRoom() {
     const dom = getDom();
     dom.p2pHostView.classList.remove('hidden');
     dom.p2pGuestView.classList.add('hidden');
-    document.getElementById('host-status').textContent = '正在生成连接码…';
-    document.getElementById('p2p-offer-code').textContent = '正在生成…';
+    document.getElementById('host-status').textContent = '正在连接信令服务…';
 
-    const offerCode = await hostCreateOffer();
+    setupP2PHandlers();
     app.mode = 'p2p_host';
     app.myPlayerName = name;
     app.myPlayerIndex = 0;
 
-    document.getElementById('p2p-offer-code').textContent = offerCode;
-    document.getElementById('host-status').textContent = '等待朋友连接…';
+    const roomCode = await hostCreate();
+    app.p2pRoomCode = roomCode;
+
+    document.getElementById('p2p-room-code-big').textContent = roomCode;
+    document.getElementById('host-status').textContent = '等待朋友加入…';
+    document.getElementById('host-waiting-dots').classList.remove('hidden');
   } catch (err) {
-    showToast('创建连接失败: ' + err.message);
+    showToast('创建失败: ' + err.message);
     showScreen('lobby');
   }
 }
 
-/** P2P 房主：接收客机回传的确认码 */
-async function onConfirmAnswer() {
-  const answerCode = document.getElementById('input-answer-code').value.trim();
-  if (!answerCode) { showToast('请粘贴朋友回传的确认码'); return; }
-
-  try {
-    document.getElementById('host-status').textContent = '正在建立连接…';
-    await hostAcceptAnswer(answerCode);
-    document.getElementById('host-status').textContent = '已连接！等待游戏开始…';
-  } catch (err) {
-    showToast('连接失败: ' + err.message);
-  }
-}
-
-/** P2P 客机：加入房间，粘贴连接码 */
+/** P2P 客机：输入房间号加入 */
 async function onJoinRoom() {
   const name = getNickname();
-  const offerCode = document.getElementById('input-offer-code').value.trim();
-  if (!offerCode) { showToast('请粘贴房主发来的连接码'); return; }
+  const code = document.getElementById('input-room-code').value.trim();
+  if (!code || code.length !== 4) {
+    showToast('请输入 4 位房间号');
+    return;
+  }
 
   try {
-    document.getElementById('guest-status').textContent = '正在连接…';
+    document.getElementById('guest-status').textContent = '正在连接信令服务…';
 
-    const answerCode = await guestJoin(offerCode);
     app.mode = 'p2p_guest';
     app.myPlayerName = name;
     app.myPlayerIndex = 1;
-    app.p2pAnswerCode = answerCode;
 
-    document.getElementById('p2p-answer-code').textContent = answerCode;
-    document.getElementById('p2p-guest-answer-section').classList.remove('hidden');
-    document.getElementById('guest-status').textContent = '等待房主确认…';
+    await guestJoin(code);
+    app.p2pRoomCode = code;
+    document.getElementById('guest-status').textContent = '已加入房间，等待房主确认…';
   } catch (err) {
-    showToast('连接失败: ' + err.message);
+    showToast('加入失败: ' + err.message);
+    app.mode = 'local';
   }
 }
 
@@ -193,7 +161,7 @@ function onLeaveRoom() {
   p2pDisconnect();
   app.myPlayerId = null;
   app.myPlayerName = '';
-  app.p2pAnswerCode = null;
+  app.p2pRoomCode = '';
   showScreen('lobby');
 }
 
@@ -370,7 +338,7 @@ function startP2PGameAsHost() {
   app.gameState = createGameState(p1, p2);
   app.myPlayerIndex = 0;
   app.myPlayerId = p1.id;
-  setRoomCode('P2P');
+  setRoomCode(app.p2pRoomCode || 'P2P');
 
   showScreen('game');
   renderGameState(app.gameState, 0);
@@ -723,7 +691,7 @@ function backToLobby() {
   app.myPlayerId = null;
   app.myPlayerName = '';
   app.opponentDisconnected = false;
-  app.p2pAnswerCode = null;
+  app.p2pRoomCode = '';
   showScreen('lobby');
 }
 

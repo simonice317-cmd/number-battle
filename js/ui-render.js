@@ -22,13 +22,8 @@ export function initDomRefs() {
   dom.btnLocal      = document.getElementById('btn-local');
   dom.btnCreate     = document.getElementById('btn-create');
   dom.btnJoinShow   = document.getElementById('btn-join-show');
-  dom.joinArea      = document.getElementById('join-area');
-  dom.inputRoomCode = document.getElementById('input-roomcode');
-  dom.btnJoin       = document.getElementById('btn-join');
 
   // Waiting
-  dom.roomCodeBig   = document.getElementById('room-code-big');
-  dom.waitingStatus = document.getElementById('waiting-status');
   dom.btnLeaveRoom  = document.getElementById('btn-leave-room');
 
   // P2P views
@@ -173,7 +168,6 @@ export function updateTimer(secondsLeft) {
 
 /** 设置房间码显示 */
 export function setRoomCode(code) {
-  if (dom.roomCodeBig)   dom.roomCodeBig.textContent = code;
   if (dom.roomCodeBadge) dom.roomCodeBadge.textContent = `房间: ${code}`;
 }
 
