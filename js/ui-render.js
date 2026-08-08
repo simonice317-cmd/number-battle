@@ -310,11 +310,18 @@ export function renderCharSelect() {
       skillsHtml += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
     });
 
+    // 组合技信息（如果有）
+    let comboHtml = '';
+    if (char.combo) {
+      const comboNums = char.combo.required.join(' + ');
+      comboHtml = `<div class="skill-combo-info">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc}</div>`;
+    }
+
     card.innerHTML = `
       <div class="char-avatar">${char.avatar}</div>
       <div class="char-name">${char.name}</div>
       <div class="char-hp">❤️ HP: ${char.maxHp}</div>
-      <div class="char-skills">${skillsHtml}</div>
+      <div class="char-skills">${skillsHtml}${comboHtml}</div>
     `;
 
     card.addEventListener('click', () => {

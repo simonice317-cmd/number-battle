@@ -363,12 +363,11 @@ export function getComboAvailable(player) {
   const char = getCharacter(player);
   if (!char || !char.combo) return null;
   const { required } = char.combo;
-  // 所有 required 数字都存在且 skillReady
-  const allReady = required.every(val => {
-    const num = player.numbers.find(n => n.value === val && n.skillReady);
-    return !!num;
+  // 只需要所有 required 数字存在，不要求 skillReady（组合技独立于技能使用状态）
+  const allPresent = required.every(val => {
+    return player.numbers.some(n => n.value === val);
   });
-  if (!allReady) return null;
+  if (!allPresent) return null;
   return char.combo;
 }
 
@@ -393,10 +392,10 @@ export function useCombo(state, playerIndex) {
     return { error: '组合技条件不满足' };
   }
 
-  // 消耗所有 required 数字的技能
+  // 消耗所有 required 数字（有 skillReady 的也消耗掉，避免单技能和 combo 同时使用）
   const logParts = [`${player.name} 发动 ${combo.name}！`];
   for (const val of combo.required) {
-    const num = player.numbers.find(n => n.value === val && n.skillReady);
+    const num = player.numbers.find(n => n.value === val);
     if (num) num.skillReady = false;
   }
 

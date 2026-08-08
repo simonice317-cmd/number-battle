@@ -441,6 +441,12 @@ body::before {
   background: rgba(255,255,255,.1); font-weight: 700;
   font-size: 12px; margin-right: 6px;
 }
+.char-card .skill-combo-info {
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  color: #F59E0B; font-weight: 600; font-size: 12px;
+}
+.char-card .combo-num { background: rgba(245,158,11,.2); }
 .charselect-status {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
