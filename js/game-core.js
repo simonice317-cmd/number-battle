@@ -57,6 +57,7 @@ export function createGameState(player1, player2) {
     turnActionsUsed: 0,                // 本回合已用操作总数 (0-2)
     additionsUsed: 0,                  // 本回合已用加法次数 (0-1)
     winner: null,                      // null | 0 | 1
+    winReason: null,                   // 'hp_depleted' | 'surrender' | 'timeout'
     turnEndsAt: null,                  // 服务器时间戳（联机用）
   };
 }
@@ -234,6 +235,7 @@ export function useSkill(state, playerIndex, myNumIdx) {
   if (winResult !== null) {
     newState.phase = 'finished';
     newState.winner = winResult;
+    newState.winReason = 'hp_depleted';
   }
 
   // 操作总数用满则自动结束回合
@@ -295,6 +297,7 @@ export function surrender(state, playerIndex) {
   const newState = deepClone(state);
   newState.phase = 'finished';
   newState.winner = opponentIndex(playerIndex);
+  newState.winReason = 'surrender';
   return {
     newState,
     log: `${state.players[playerIndex].name} 投降，${state.players[opponentIndex(playerIndex)]?.name || '对方'} 获胜！`

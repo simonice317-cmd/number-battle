@@ -90,6 +90,15 @@ function bindEvents() {
   dom.btnLobby .addEventListener('click', backToLobby);
 }
 
+/** 根据 winReason 生成结算文案 */
+function getWinMessage(gs, myIdx) {
+  if (!gs || !gs.winReason) return '';
+  if (gs.winReason === 'surrender') {
+    return gs.winner === myIdx ? '对方投降' : '你投降了';
+  }
+  return gs.winner === myIdx ? '对方血量归零' : '你的血量归零';
+}
+
 // ============================================================
 //  大厅逻辑
 // ============================================================
@@ -220,7 +229,7 @@ function handleP2PMessage(msg) {
         if (app.gameState.phase === 'finished') {
           stopLocalTimer();
           const won = app.gameState.winner === app.myPlayerIndex;
-          setTimeout(() => showResult(won, '对方血量归零'), 600);
+          setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 600);
         }
       }
       break;
@@ -279,7 +288,7 @@ function handleGuestAction(type, payload) {
     if (app.gameState.phase === 'finished') {
       stopLocalTimer();
       const won = app.gameState.winner === app.myPlayerIndex;
-      setTimeout(() => showResult(won, '对方血量归零'), 600);
+      setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 600);
       return;
     }
 
@@ -421,7 +430,7 @@ function handleDragDropLocal(numIndex, dropTargetType, targetNumIdx) {
   if (app.gameState.phase === 'finished') {
     stopLocalTimer();
     const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won), 800);
+    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
     return;
   }
 
@@ -473,7 +482,7 @@ function executeHostAction(dragResult) {
   if (app.gameState.phase === 'finished') {
     stopLocalTimer();
     const won = app.gameState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won), 800);
+    setTimeout(() => showResult(won, getWinMessage(app.gameState, app.myPlayerIndex)), 800);
     send('state_update', { gameState: sanitizeGameState(app.gameState) });
     return;
   }
@@ -544,7 +553,7 @@ function handleSurrender() {
     showToast(result.log, 2000);
     send('state_update', { gameState: sanitizeGameState(app.gameState) });
     const won = result.newState.winner === app.myPlayerIndex;
-    setTimeout(() => showResult(won, '对方投降'), 800);
+    setTimeout(() => showResult(won, getWinMessage(result.newState, app.myPlayerIndex)), 800);
     return;
   }
 
@@ -555,8 +564,8 @@ function handleSurrender() {
   stopLocalTimer();
   renderGameState(app.gameState, app.myPlayerIndex);
   showToast(result.log, 2000);
-  const won = result.newState.winner === app.myPlayerIndex;
-  setTimeout(() => showResult(won, '对方投降'), 800);
+  const won2 = result.newState.winner === app.myPlayerIndex;
+  setTimeout(() => showResult(won2, getWinMessage(result.newState, app.myPlayerIndex)), 800);
 }
 
 function checkLocalTurnSwitch() {
