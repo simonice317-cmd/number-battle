@@ -118,7 +118,15 @@ function renderPlayer(player, prefix) {
   const hpText = dom[`${prefix}HpText`];
   const hpPct  = Math.max(0, (player.hp / player.maxHp) * 100);
   if (hpBar)  hpBar.style.width = `${hpPct}%`;
-  if (hpText) hpText.textContent = `${player.hp}/${player.maxHp}`;
+  if (hpText) {
+    if (player.baseMaxHp && player.maxHp < player.baseMaxHp) {
+      hpText.textContent = `${player.hp}/${player.maxHp}（原${player.baseMaxHp}）`;
+      hpText.style.color = '#F87171';
+    } else {
+      hpText.textContent = `${player.hp}/${player.maxHp}`;
+      hpText.style.color = '';
+    }
+  }
 
   // 护盾
   const shieldEl = dom[`${prefix}Shield`];
@@ -299,6 +307,23 @@ function buildSkillAndComboHtml(char) {
   return html;
 }
 
+/** 生成带锁定状态的技能+组合技 HTML（局内弹窗用） */
+function buildSkillAndComboHtmlWithStatus(char, player) {
+  let html = '';
+  Object.entries(char.skills).forEach(([num, skill]) => {
+    html += `<div class="skill-line"><span class="skill-num">${num}</span>${skill.desc}</div>`;
+  });
+  if (char.combo) {
+    const comboNums = char.combo.required.join(' + ');
+    const comboAvail = player ? getComboAvailable(player) : null;
+    const locked = player && player.comboUsed;
+    const statusClass = locked ? 'combo-locked' : 'combo-ready';
+    const statusText = locked ? '（已锁定，需加法解锁）' : '（可用）';
+    html += `<div class="skill-combo-info ${statusClass}">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc} ${statusText}</div>`;
+  }
+  return html;
+}
+
 /** 渲染角色选择卡片 */
 export function renderCharSelect() {
   const container = dom.charCards;
@@ -374,13 +399,26 @@ export function getDom() {
 //  技能弹窗
 // ============================================================
 
-/** 显示技能弹窗 */
-export function showSkillPopup(player) {
+/** 显示技能弹窗（双栏：己方 + 对手） */
+export function showSkillPopup(myPlayer, opponentPlayer) {
   if (!dom.skillPopup) return;
-  const char = getCharacter(player);
-  if (!char) return;
-  dom.skillPopupTitle.textContent = `${char.avatar} ${char.name} 技能`;
-  dom.skillPopupList.innerHTML = buildSkillAndComboHtml(char);
+  const myChar = getCharacter(myPlayer);
+  const oppChar = getCharacter(opponentPlayer);
+  if (!myChar || !oppChar) return;
+
+  dom.skillPopupTitle.textContent = '技能详情';
+  // 双栏布局
+  dom.skillPopupList.innerHTML = '';
+  dom.skillPopupList.classList.add('skill-popup-columns');
+
+  const myCol = document.getElementById('skill-popup-my');
+  const oppCol = document.getElementById('skill-popup-opp');
+  if (myCol) {
+    myCol.innerHTML = `<h4>${myChar.avatar} ${myChar.name}（我方）</h4>${buildSkillAndComboHtmlWithStatus(myChar, myPlayer)}`;
+  }
+  if (oppCol) {
+    oppCol.innerHTML = `<h4>${oppChar.avatar} ${oppChar.name}（对方）</h4>${buildSkillAndComboHtmlWithStatus(oppChar, opponentPlayer)}`;
+  }
   dom.skillPopup.classList.remove('hidden');
 }
 
@@ -388,5 +426,63 @@ export function showSkillPopup(player) {
 export function hideSkillPopup() {
   if (dom.skillPopup) {
     dom.skillPopup.classList.add('hidden');
+  }
+}
+
+// ============================================================
+//  大厅技能图鉴
+// ============================================================
+
+let guidePopupEl = null;
+
+/** 显示大厅技能图鉴 */
+export function showLobbyGuide() {
+  if (guidePopupEl) guidePopupEl.remove();
+
+  guidePopupEl = document.createElement('div');
+  guidePopupEl.id = 'lobby-guide-popup';
+  guidePopupEl.className = 'skill-popup';
+  guidePopupEl.innerHTML = `
+    <div class="skill-popup-bg"></div>
+    <div class="guide-popup-card">
+      <h3>📖 技能图鉴</h3>
+      <div id="lobby-guide-list">
+        ${Object.values(CHARACTERS).map(char => `
+          <div class="lobby-guide-char">
+            <div class="lobby-guide-header">
+              <span class="guide-avatar">${char.avatar}</span>
+              <span class="guide-name">${char.name}</span>
+              <span class="guide-hp">❤️ HP: ${char.maxHp}</span>
+            </div>
+            <div class="char-skills">${buildSkillAndComboHtml(char)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-secondary guide-close-btn">关闭</button>
+    </div>
+  `;
+  document.body.appendChild(guidePopupEl);
+
+  const close = () => { guidePopupEl.remove(); guidePopupEl = null; };
+  guidePopupEl.querySelector('.skill-popup-bg').addEventListener('click', close);
+  guidePopupEl.querySelector('.guide-close-btn').addEventListener('click', close);
+}
+
+// ============================================================
+//  角色选择锁定
+// ============================================================
+
+/** 标记角色卡片为已锁定 */
+export function setCharLocked(charId) {
+  const cards = document.querySelectorAll('.char-card');
+  cards.forEach(card => {
+    if (card.dataset.charId === charId) {
+      card.classList.add('locked');
+    }
+    card.style.pointerEvents = 'none';
+  });
+  if (dom.btnConfirmChar) {
+    dom.btnConfirmChar.textContent = '已锁定 ✓';
+    dom.btnConfirmChar.disabled = true;
   }
 }

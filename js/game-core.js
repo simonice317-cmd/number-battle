@@ -23,6 +23,7 @@ export const CHARACTERS = {
       // target: 'self_body'      → 拖到自己头像
       4: { type: 'damage', target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
       5: { type: 'shield', target: 'self_body', value: 1, desc: '护盾：获得 1 点护盾' },
+      8: { type: 'damage', target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
       9: { type: 'heal',   target: 'self_body', value: 1, desc: '圣泉：回复 1 点 HP' },
     }
   },
@@ -36,7 +37,16 @@ export const CHARACTERS = {
       4: { type: 'damage',        target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
       5: { type: 'shield_strike', target: 'opponent_body', value: 1, desc: '盾击：自身+1护盾并造成1点伤害' },
       6: { type: 'buff',          target: 'self_body',     value: 1, desc: '神圣号角：下次攻击伤害+1（上限1）' },
+      8: { type: 'damage',        target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
       9: { type: 'heal',          target: 'self_body',     value: 1, desc: '圣泉：回复 1 点 HP' },
+    },
+    combo: {
+      name: '圣光复苏',
+      required: [5, 5],
+      effects: [
+        { type: 'restore_max_hp', target: 'self_body' },
+      ],
+      desc: '圣光复苏：将自身生命上限恢复至初始值 5',
     }
   },
   archer: {
@@ -47,7 +57,9 @@ export const CHARACTERS = {
     color: '#10B981',
     skills: {
       3: { type: 'damage', target: 'opponent_body', value: 1, desc: '快速射击：造成 1 点伤害' },
+      4: { type: 'damage', target: 'opponent_body', value: 1, desc: '速射：造成 1 点伤害' },
       5: { type: 'shield', target: 'self_body',     value: 1, desc: '轻甲：获得 1 点护盾' },
+      8: { type: 'damage', target: 'opponent_body', value: 1, desc: '速射：造成 1 点伤害' },
       9: { type: 'heal',   target: 'self_body',     value: 1, desc: '灵药：回复 1 点 HP' },
     },
     combo: {
@@ -63,14 +75,24 @@ export const CHARACTERS = {
   thief: {
     id: 'thief',
     name: '盗贼',
-    maxHp: 4,
+    maxHp: 2,
     avatar: '🗡️',
     color: '#8B5CF6',
     skills: {
-      1: { type: 'steal_number',   target: 'opponent_number', value: null, desc: '偷取：复制对手一个数字的值' },
       4: { type: 'damage',         target: 'opponent_body',   value: 1,   desc: '刺击：造成 1 点伤害' },
       6: { type: 'steal_resource', target: 'opponent_body',   value: 1,   desc: '妙手：偷取对手1点护盾或血量（优先护盾）' },
       7: { type: 'pierce_damage',  target: 'opponent_body',   value: 1,   desc: '重击：无视护盾直接造成1点伤害' },
+      8: { type: 'damage',         target: 'opponent_body',   value: 1,   desc: '刺击：造成 1 点伤害' },
+      9: { type: 'shield_temp',    target: 'self_body',       value: 1,   desc: '暗影斗篷：获得 1 点临时护盾' },
+    },
+    combo: {
+      name: '暗影突袭',
+      required: [8, 7],
+      effects: [
+        { type: 'break_shield', target: 'opponent_body', value: 1 },
+        { type: 'damage',       target: 'opponent_body', value: 1 },
+      ],
+      desc: '暗影突袭：破除对方1点护盾并造成1点伤害',
     }
   }
 };
@@ -88,6 +110,7 @@ export function createPlayer(id, name, characterId = 'basic') {
     characterId,
     hp: char.maxHp,
     maxHp: char.maxHp,
+    baseMaxHp: char.maxHp, // 初始生命上限（重伤不可逆减少，圣骑士 combo 可恢复）
     shield: 0,
     damageBuff: 0,  // 攻击强化层数（神圣号角等），上限1，下次攻击消耗
     comboUsed: false, // 组合技使用后锁定，需做加法才能解锁
@@ -183,6 +206,16 @@ function consumeDamageBuff(source) {
   return bonus;
 }
 
+/** 重伤系统：受到实际 HP 伤害后，永久降低最大生命值 */
+function applyGrievousWounds(target, actualHpLoss) {
+  if (actualHpLoss <= 0) return 0;
+  const maxHpLoss = Math.floor(actualHpLoss * 0.5);
+  if (maxHpLoss <= 0) return 0;
+  target.maxHp = Math.max(1, target.maxHp - maxHpLoss);
+  target.hp = Math.min(target.hp, target.maxHp);
+  return maxHpLoss;
+}
+
 /** 行动后：操作数+1，若用满则自动结束回合 */
 function finalizeAction(newState) {
   newState.turnActionsUsed += 1;
@@ -269,6 +302,7 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       log = applyDamage(player, opponent, skill.value, player.name, opponent.name);
       break;
     case 'shield':
+    case 'shield_temp':
       player.shield += skill.value;
       log = `${player.name} 获得 ${skill.value} 点护盾（当前护盾: ${player.shield}）`;
       break;
@@ -293,6 +327,8 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       const parts = [];
       if (bonus > 0) parts.push(`强化攻击 +${bonus}`);
       parts.push(`无视护盾造成 ${totalDmg} 点伤害`);
+      const gwLost = applyGrievousWounds(opponent, totalDmg);
+      if (gwLost > 0) parts.push(`上限-${gwLost}`);
       log = `${player.name} 发动重击！${parts.join('，')}（${opponent.name} HP: ${opponent.hp}/${opponent.maxHp}）`;
       break;
     }
@@ -316,6 +352,7 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
         log = `${player.name} 发动妙手！偷取对手 1 点护盾（自身护盾: ${player.shield}）`;
       } else if (opponent.hp > 0) {
         opponent.hp -= 1;
+        applyGrievousWounds(opponent, 1);
         const healed = applyHeal(player, 1);
         log = `${player.name} 发动妙手！偷取对手 1 点血量（自身 HP: ${player.hp}/${player.maxHp}）`;
       } else {
@@ -345,8 +382,13 @@ export function getComboAvailable(player) {
   // 用过组合技后锁定，需做一次加法才能再次使用
   if (player.comboUsed) return null;
   const { required } = char.combo;
+  // 使用副本逐一匹配，支持重复值（如 [5,5] 需要两个数字都是 5）
+  const remaining = [...player.numbers];
   const allPresent = required.every(val => {
-    return player.numbers.some(n => n.value === val);
+    const idx = remaining.findIndex(n => n.value === val);
+    if (idx === -1) return false;
+    remaining.splice(idx, 1);
+    return true;
   });
   if (!allPresent) return null;
   return char.combo;
@@ -382,6 +424,21 @@ export function useCombo(state, playerIndex) {
         player.shield += eff.value;
         logParts.push(`获得 ${eff.value} 点护盾（当前: ${player.shield}）`);
         break;
+      case 'restore_max_hp': {
+        const oldMax = player.maxHp;
+        player.maxHp = player.baseMaxHp;
+        player.hp = Math.min(player.hp, player.maxHp);
+        logParts.push(`生命上限恢复 ${oldMax}→${player.maxHp}（当前 HP: ${player.hp}/${player.maxHp}）`);
+        break;
+      }
+      case 'break_shield': {
+        if (opponent.shield > 0) {
+          const broken = Math.min(opponent.shield, eff.value);
+          opponent.shield -= broken;
+          logParts.push(`破除对手 ${broken} 点护盾`);
+        }
+        break;
+      }
     }
   }
 
@@ -411,6 +468,9 @@ function applyDamage(source, target, damage, sourceName, targetName) {
   if (remaining > 0) {
     target.hp = Math.max(0, target.hp - remaining);
     logParts.push(`造成 ${remaining} 点伤害`);
+    // 重伤系统：实际扣血后永久降低上限
+    const gwLost = applyGrievousWounds(target, remaining);
+    if (gwLost > 0) logParts.push(`上限-${gwLost}`);
   }
 
   return `${sourceName} 发动攻击！${logParts.join('，')}（${targetName} HP: ${target.hp}/${target.maxHp}）`;
@@ -456,6 +516,11 @@ function switchTurn(state) {
   state.currentTurn = opponentIndex(state.currentTurn);
   state.turnActionsUsed = 0;
   state.additionsUsed = 0;
+  // 护盾过期：新回合开始时，清除当前玩家的未消耗护盾
+  const incoming = state.players[state.currentTurn];
+  if (incoming.shield > 0) {
+    incoming.shield = 0;
+  }
 }
 
 // ============================================================

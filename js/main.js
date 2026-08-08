@@ -21,6 +21,7 @@ import {
   getDom, setupCoinFlipUI, showCoinFlipResult,
   renderCharSelect, showSkillEffect,
   showSkillPopup, hideSkillPopup,
+  showLobbyGuide, setCharLocked,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
@@ -47,7 +48,10 @@ const app = {
 
   // 角色选择
   myCharacterId: null,
+  myCharacterLocked: false,
   opponentCharacterId: null,
+  opponentCharacterLocked: false,
+  _localChar1: null,       // 本地模式玩家1的角色ID
 };
 
 // ============================================================
@@ -69,6 +73,9 @@ function bindEvents() {
 
   // 大厅
   dom.btnLocal    .addEventListener('click', onLocalPlay);
+  document.getElementById('btn-lobby-guide')?.addEventListener('click', () => {
+    showLobbyGuide();
+  });
   dom.btnCreate   .addEventListener('click', () => {
     setupP2PHandlers();
     onCreateRoom();
@@ -111,7 +118,8 @@ function bindEvents() {
     const gs = app.gameState;
     if (!gs || !gs.players) return;
     const me = gs.players[app.myPlayerIndex];
-    if (me) showSkillPopup(me);
+    const opp = gs.players[app.myPlayerIndex === 0 ? 1 : 0];
+    if (me && opp) showSkillPopup(me, opp);
   });
 
   // 技能弹窗关闭
@@ -158,10 +166,22 @@ function applyActionResult(result, opts = {}) {
   return true; // 游戏继续
 }
 
-/** 组合技双闪特效（3 处共用） */
-function showComboEffect(opponentAvatar, myAvatar) {
-  showSkillEffect(opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
-  setTimeout(() => showSkillEffect(myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
+/** 组合技特效（根据 combo 类型显示不同效果） */
+function showComboEffect(combo, opponentAvatar, myAvatar) {
+  const hasDamage = combo.effects.some(e => e.type === 'damage');
+  const hasHeal = combo.effects.some(e => e.type === 'heal');
+  const hasBreakShield = combo.effects.some(e => e.type === 'break_shield');
+  const hasRestore = combo.effects.some(e => e.type === 'restore_max_hp');
+
+  if (hasDamage || hasBreakShield) {
+    showSkillEffect(opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
+  }
+  if (hasHeal) {
+    setTimeout(() => showSkillEffect(myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
+  }
+  if (hasRestore) {
+    setTimeout(() => showSkillEffect(myAvatar, '✨恢复', '#FBBF24', 'avatar-flash-heal'), 300);
+  }
 }
 
 /** 拖拽技能特效（local / host / guest 共用） */
@@ -187,11 +207,14 @@ const SKILL_EFFECTS = {
   damage:         { text: (v) => `-${v}`,   color: '#F87171', flash: 'avatar-flash-hit' },
   shield_strike:  { text: (v) => `🛡-${v}`, color: '#F87171', flash: 'avatar-flash-hit' },
   shield:         { text: (v) => `+${v}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
+  shield_temp:    { text: (v) => `+${v}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
   heal:           { text: (v) => `+${v}❤`,  color: '#34D399', flash: 'avatar-flash-heal' },
   buff:           { text: (v) => `⚔+${v}`,  color: '#FBBF24', flash: 'avatar-flash-buff' },
   pierce_damage:  { text: (v) => `💀-${v}`, color: '#EF4444', flash: 'avatar-flash-pierce' },
   steal_number:   { text: () => '✋复制',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
   steal_resource: { text: () => '✋偷取',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
+  restore_max_hp: { text: () => '✨恢复',   color: '#FBBF24', flash: 'avatar-flash-heal' },
+  break_shield:   { text: () => '💔破盾',   color: '#EF4444', flash: 'avatar-flash-hit' },
 };
 
 // ============================================================
@@ -347,12 +370,16 @@ function handleP2PMessage(msg) {
       break;
 
     // ---- 角色选择 ----
-    case 'char_select':
+    case 'char_locked':
+      app.opponentCharacterId = payload.characterId;
+      app.opponentCharacterLocked = true;
       if (app.mode === 'p2p_host' && app.p2pPhase === 'char_select') {
-        app.opponentCharacterId = payload.characterId;
         tryStartP2PGame();
       } else if (app.mode === 'p2p_guest' && app.p2pPhase === 'char_select') {
-        app.opponentCharacterId = payload.characterId;
+        const dom = getDom();
+        if (dom.charselectWaiting) {
+          dom.charselectWaiting.textContent = app.myCharacterLocked ? '双方均已锁定，等待房主开始…' : '对方已锁定，请选择并锁定角色';
+        }
       }
       break;
 
@@ -435,7 +462,10 @@ function handleGuestAction(type, payload) {
   if (!result || !result.newState) return;
 
   // 特效
-  if (type === 'use_combo') showComboEffect(getDom().myAvatar, getDom().opponentAvatar);
+  if (type === 'use_combo') {
+    const guestChar = CHARACTERS[gs.players[1].characterId];
+    if (guestChar?.combo) showComboEffect(guestChar.combo, getDom().myAvatar, getDom().opponentAvatar);
+  }
   if (type === 'use_skill') showDragSkillEffect(gs, payload, 1); // guest = player index 1
 
   applyActionResult(result, { broadcast: true, tail: 'resetTimer' });
@@ -450,8 +480,10 @@ function rebuildGameState(s) {
       characterId: p.characterId,
       hp: p.hp,
       maxHp: p.maxHp,
+      baseMaxHp: p.baseMaxHp || p.maxHp,  // 向后兼容旧状态
       shield: p.shield,
       damageBuff: p.damageBuff || 0,
+      comboUsed: p.comboUsed || false,      // 修复：之前缺失导致P2P同步后组合技锁失效
       numbers: p.numbers.map(n => ({ value: n.value, skillReady: n.skillReady })),
     })),
     currentTurn: s.currentTurn,
@@ -512,6 +544,9 @@ function startCharSelect() {
   showScreen('charselect');
   renderCharSelect();
   app.myCharacterId = null;
+  app.myCharacterLocked = false;
+  app.opponentCharacterLocked = false;
+  app._localChar1 = null;
   if (app.mode === 'p2p_host') app.opponentCharacterId = null;
 }
 
@@ -519,20 +554,37 @@ function onConfirmCharSelect() {
   const selectedEl = document.querySelector('.char-card.selected');
   if (!selectedEl) { showToast('请先选择一个角色'); return; }
   app.myCharacterId = selectedEl.dataset.charId;
+  app.myCharacterLocked = true;
 
-  // 禁用选择
-  document.querySelectorAll('.char-card').forEach(c => { c.style.pointerEvents = 'none'; });
-  getDom().btnConfirmChar.disabled = true;
+  // 显示锁定状态
+  setCharLocked(app.myCharacterId);
+  showToast('角色已锁定，等待对手…', 2000);
 
   if (app.mode === 'p2p_host') {
-    send('char_select', { characterId: app.myCharacterId });
+    send('char_locked', { characterId: app.myCharacterId });
     tryStartP2PGame();
   } else if (app.mode === 'p2p_guest') {
-    send('char_select', { characterId: app.myCharacterId });
+    send('char_locked', { characterId: app.myCharacterId });
     getDom().charselectWaiting.classList.remove('hidden');
+    // 如果房主已经锁定，等待 game_start 即可
+    if (app.opponentCharacterLocked) {
+      getDom().charselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+    }
   } else if (app.mode === 'local') {
-    // 本地模式：直接开始游戏
-    startLocalGameWithFlip();
+    if (!app._localChar1) {
+      // 玩家1锁定 → 切换给玩家2
+      app._localChar1 = app.myCharacterId;
+      showSwitchOverlay(app._localName2, () => {
+        app.myPlayerIndex = 1;
+        app.myCharacterId = null;
+        app.myCharacterLocked = false;
+        renderCharSelect();
+        showToast(`${app._localName2}，请选择并锁定角色`, 2500);
+      });
+    } else {
+      // 玩家2锁定 → 开战
+      startLocalGameWithChars(app._localChar1, app.myCharacterId);
+    }
   }
 }
 
@@ -540,8 +592,9 @@ function onConfirmCharSelect() {
 //  游戏启动
 // ============================================================
 
-/** 房主：确认双方都选了角色后启动 */
+/** 房主：确认双方都锁定角色后启动 */
 function tryStartP2PGame() {
+  if (!app.myCharacterLocked || !app.opponentCharacterLocked) return;
   if (!app.myCharacterId || !app.opponentCharacterId) return;
 
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
@@ -566,13 +619,11 @@ function tryStartP2PGame() {
   });
 }
 
-/** 本地模式：猜硬币后启动游戏 */
-function startLocalGameWithFlip() {
+/** 本地模式：双方选定角色后启动游戏 */
+function startLocalGameWithChars(charId1, charId2) {
   const firstTurn = app.coinFlipFirstTurn;
-  const charId = app.myCharacterId || 'basic';
-
-  const p1 = createPlayer(generateId(), app.myPlayerName, charId);
-  const p2 = createPlayer(generateId(), app._localName2, charId);
+  const p1 = createPlayer(generateId(), app.myPlayerName, charId1);
+  const p2 = createPlayer(generateId(), app._localName2, charId2);
 
   app.gameState = createGameState(p1, p2);
   app.gameState.currentTurn = firstTurn;
@@ -671,10 +722,11 @@ function handleCombo() {
   if (app.mode === 'p2p_guest') { send('use_combo', {}); return; }
 
   const broadcast = app.mode === 'p2p_host';
+  const combo = getComboAvailable(gs.players[app.myPlayerIndex]);
   const result = useCombo(gs, app.myPlayerIndex);
   if (result.error) { showToast(result.error); return; }
 
-  showComboEffect(getDom().opponentAvatar, getDom().myAvatar);
+  if (combo) showComboEffect(combo, getDom().opponentAvatar, getDom().myAvatar);
   applyActionResult(result, { broadcast, tail: broadcast ? 'resetTimer' : 'checkTurn' });
 }
 
@@ -812,8 +864,8 @@ function onRematch() {
 
   const gs = app.gameState;
   if (!gs) return;
-  const p1 = createPlayer(gs.players[0].id, gs.players[0].name, 'basic');
-  const p2 = createPlayer(gs.players[1].id, gs.players[1].name, 'basic');
+  const p1 = createPlayer(gs.players[0].id, gs.players[0].name, gs.players[0].characterId);
+  const p2 = createPlayer(gs.players[1].id, gs.players[1].name, gs.players[1].characterId);
   const firstTurn = gs.winner === 1 ? 0 : 1;
   const newState = createGameState(p1, p2);
   newState.currentTurn = firstTurn;
@@ -834,6 +886,9 @@ function backToLobby() {
   app.myPlayerId = null;
   app.myPlayerName = '';
   app.p2pRoomCode = '';
+  app.myCharacterLocked = false;
+  app.opponentCharacterLocked = false;
+  app._localChar1 = null;
   showScreen('lobby');
 }
 

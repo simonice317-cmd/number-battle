@@ -61,9 +61,15 @@
         </button>
       </div>
 
+      <button id="btn-lobby-guide" class="lobby-btn lobby-btn--guide" style="width:100%;margin-top:4px;">
+        <span class="lobby-btn__icon">📖</span>
+        <span class="lobby-btn__text">技能图鉴</span>
+      </button>
+
     </div>
   </div>
 </div>
+
 
 <!-- ============================================================
      等待页：P2P 自动连接（MQTT 信令）
@@ -156,8 +162,8 @@
 
     <!-- 确认按钮 -->
     <div class="charselect-status">
-      <button id="btn-confirm-char" class="btn btn-primary" disabled>确认选择</button>
-      <p id="charselect-waiting" class="waiting-status hidden">等待对手选择角色…</p>
+      <button id="btn-confirm-char" class="btn btn-primary" disabled>锁定该角色</button>
+      <p id="charselect-waiting" class="waiting-status hidden">等待对手锁定角色…</p>
     </div>
   </div>
 </div>
@@ -247,15 +253,18 @@
   <!-- 提示浮层 -->
   <div id="toast" class="toast hidden"></div>
 
-	  <!-- 技能查看弹窗 -->
-	  <div id="skill-popup" class="skill-popup hidden">
-	    <div class="skill-popup-bg"></div>
-	    <div class="skill-popup-card">
-	      <h3 id="skill-popup-title"></h3>
-	      <div id="skill-popup-list"></div>
-	      <button id="skill-popup-close" class="btn btn-secondary">关闭</button>
+<!-- 技能查看弹窗 -->
+	<div id="skill-popup" class="skill-popup hidden">
+	  <div class="skill-popup-bg"></div>
+	  <div class="skill-popup-card skill-popup-card--dual">
+	    <h3 id="skill-popup-title"></h3>
+	    <div id="skill-popup-list" class="skill-popup-columns">
+	      <div class="skill-popup-col" id="skill-popup-my"></div>
+	      <div class="skill-popup-col" id="skill-popup-opp"></div>
 	    </div>
+	    <button id="skill-popup-close" class="btn btn-secondary">关闭</button>
 	  </div>
+	</div>
 </div>
 
 <!-- ============================================================
