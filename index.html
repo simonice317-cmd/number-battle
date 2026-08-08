@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>数字对战</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============================================================
+     大厅页
+     ============================================================ -->
+<div id="screen-lobby" class="screen active">
+  <!-- 背景几何图形 -->
+  <div class="bg-geometry">
+    <div class="geo geo-1"></div>
+    <div class="geo geo-2"></div>
+    <div class="geo geo-3"></div>
+    <div class="geo geo-4"></div>
+    <div class="geo geo-ring"></div>
+  </div>
+
+  <div class="lobby-container">
+    <!-- 标题区 -->
+    <div class="lobby-header">
+      <div class="logo-mark">
+        <svg viewBox="0 0 48 48" fill="none"><rect x="4" y="4" width="17" height="17" rx="5" fill="currentColor" opacity=".9"/><rect x="27" y="4" width="17" height="17" rx="5" fill="currentColor" opacity=".6"/><rect x="4" y="27" width="17" height="17" rx="5" fill="currentColor" opacity=".6"/><rect x="27" y="27" width="17" height="17" rx="5" fill="currentColor" opacity=".3"/></svg>
+      </div>
+      <h1 class="game-title">数字对战</h1>
+      <p class="game-subtitle">拖拽 · 策略 · 联机对决</p>
+    </div>
+
+    <!-- 玻璃主卡片 -->
+    <div class="lobby-card">
+      <!-- 昵称输入 -->
+      <div class="input-wrap">
+        <input id="input-nickname" class="input-field" type="text" placeholder="你的昵称" maxlength="8" autocomplete="off" required>
+        <span class="input-bar"></span>
+      </div>
+
+      <!-- 按钮网格 -->
+      <div class="lobby-buttons">
+        <button id="btn-local" class="lobby-btn lobby-btn--local">
+          <span class="lobby-btn__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </span>
+          <span class="lobby-btn__text">本地对战</span>
+        </button>
+        <button id="btn-create" class="lobby-btn lobby-btn--create">
+          <span class="lobby-btn__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 L12 22 M2 12 L22 12"/></svg>
+          </span>
+          <span class="lobby-btn__text">创建房间</span>
+        </button>
+        <button id="btn-join-show" class="lobby-btn lobby-btn--join">
+          <span class="lobby-btn__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4 M10 17l5-5-5-5 M14 12H3"/></svg>
+          </span>
+          <span class="lobby-btn__text">加入房间</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     等待页：P2P 连接码交换
+     ============================================================ -->
+<div id="screen-waiting" class="screen">
+  <div class="waiting-container">
+
+    <!-- 房主视图：生成连接码 + 等待确认码 -->
+    <div id="p2p-host-view" class="p2p-view hidden">
+      <div class="lobby-header" style="margin-bottom:20px;">
+        <h1 class="game-title" style="font-size:1.5rem;">🔗 创建房间</h1>
+      </div>
+
+      <div class="p2p-step">
+        <span class="p2p-step-num">①</span>
+        <span class="p2p-step-text">复制连接码，发给朋友</span>
+      </div>
+      <div class="code-box" id="code-box-offer">
+        <code id="p2p-offer-code" class="p2p-code">正在生成…</code>
+        <button id="btn-copy-offer" class="btn btn-copy">📋 复制</button>
+      </div>
+      <p class="p2p-copy-hint">👆 点击复制后，通过微信/QQ发给朋友</p>
+
+      <div class="p2p-divider"><span>然后</span></div>
+
+      <div class="p2p-step">
+        <span class="p2p-step-num">②</span>
+        <span class="p2p-step-text">粘贴朋友回传的确认码</span>
+      </div>
+      <div class="input-wrap code-input-wrap">
+        <textarea id="input-answer-code" class="input-field code-textarea"
+          placeholder="在此粘贴朋友回传的确认码…" rows="2"></textarea>
+        <span class="input-bar"></span>
+      </div>
+      <button id="btn-confirm-answer" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
+        确认连接
+      </button>
+      <p id="host-status" class="waiting-status"></p>
+      <button id="btn-leave-room" class="btn btn-leave">🚪 退出</button>
+    </div>
+
+    <!-- 客机视图：粘贴连接码 + 回传确认码 -->
+    <div id="p2p-guest-view" class="p2p-view hidden">
+      <div class="lobby-header" style="margin-bottom:20px;">
+        <h1 class="game-title" style="font-size:1.5rem;">🔗 加入房间</h1>
+      </div>
+
+      <div class="p2p-step">
+        <span class="p2p-step-num">①</span>
+        <span class="p2p-step-text">粘贴房主发来的连接码</span>
+      </div>
+      <div class="input-wrap code-input-wrap">
+        <textarea id="input-offer-code" class="input-field code-textarea"
+          placeholder="在此粘贴房主发来的连接码…" rows="2"></textarea>
+        <span class="input-bar"></span>
+      </div>
+      <button id="btn-join-offer" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
+        连接
+      </button>
+
+      <div id="p2p-guest-answer-section" class="hidden" style="margin-top:16px;">
+        <div class="p2p-divider"><span>然后</span></div>
+
+        <div class="p2p-step">
+          <span class="p2p-step-num">②</span>
+          <span class="p2p-step-text">复制确认码，发回给房主</span>
+        </div>
+        <div class="code-box" id="code-box-answer">
+          <code id="p2p-answer-code" class="p2p-code">正在生成…</code>
+          <button id="btn-copy-answer" class="btn btn-copy">📋 复制</button>
+        </div>
+        <p class="p2p-copy-hint">👆 复制后发回给房主，等待房主确认…</p>
+        <div class="waiting-dots" style="margin:12px 0;"><span>.</span><span>.</span><span>.</span></div>
+      </div>
+
+      <p id="guest-status" class="waiting-status"></p>
+      <button id="btn-leave-room-guest" class="btn btn-leave">🚪 退出</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     对局页：主游戏界面
+     ============================================================ -->
+<div id="screen-game" class="screen">
+  <!-- 顶栏 -->
+  <div class="top-bar">
+    <span class="top-bar-title">🔢 数字对战</span>
+    <span id="room-code-display" class="room-code-badge">房间: ----</span>
+  </div>
+
+  <!-- 对手区域 -->
+  <div class="opponent-area">
+    <div class="player-info opponent-info">
+      <div id="opponent-avatar-zone" class="avatar-zone opponent-avatar-zone"
+           data-drop-target="opponent_body">
+        <div id="opponent-avatar" class="avatar">🧙</div>
+        <div id="opponent-name" class="player-name">对手</div>
+      </div>
+      <div class="hp-section">
+        <div class="hp-bar-wrap">
+          <div id="opponent-hp-bar" class="hp-bar opponent-hp-bar" style="width:100%"></div>
+          <div id="opponent-hp-fill" class="hp-fill opponent-hp-fill" style="width:100%"></div>
+        </div>
+        <span id="opponent-hp-text" class="hp-text">10/10</span>
+        <span id="opponent-shield" class="shield-badge hidden">🛡️ 0</span>
+      </div>
+    </div>
+
+    <!-- 对手数字 -->
+    <div class="numbers-row opponent-numbers">
+      <div id="opp-num-0" class="num-card num-card-opponent" data-drop-target="opponent_number" data-idx="0">
+        <span class="num-value">1</span>
+      </div>
+      <div id="opp-num-1" class="num-card num-card-opponent" data-drop-target="opponent_number" data-idx="1">
+        <span class="num-value">1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中间信息区 -->
+  <div class="center-info">
+    <div id="timer-display" class="timer-display">⏱ 30s</div>
+    <div id="turn-label" class="turn-label">你的回合</div>
+    <div id="action-counter" class="action-counter">本回合操作: 0/1</div>
+    <button id="btn-end-turn" class="btn btn-end-turn">跳过回合 →</button>
+    <button id="btn-surrender" class="btn btn-surrender">🏳️ 投降</button>
+  </div>
+
+  <!-- 我方数字 -->
+  <div class="numbers-row my-numbers">
+    <div id="my-num-0" class="num-card num-card-mine" data-draggable data-idx="0">
+      <span class="num-value">1</span>
+      <span class="skill-dot hidden">✨</span>
+    </div>
+    <div id="my-num-1" class="num-card num-card-mine" data-draggable data-idx="1">
+      <span class="num-value">1</span>
+      <span class="skill-dot hidden">✨</span>
+    </div>
+  </div>
+
+  <!-- 我方信息 -->
+  <div class="player-info my-info">
+    <div id="my-avatar-zone" class="avatar-zone my-avatar-zone"
+         data-drop-target="self_body">
+      <div id="my-avatar" class="avatar">🧙</div>
+      <div id="my-name" class="player-name">我</div>
+    </div>
+    <div class="hp-section">
+      <div class="hp-bar-wrap">
+        <div id="my-hp-bar" class="hp-bar my-hp-bar" style="width:100%"></div>
+        <div id="my-hp-fill" class="hp-fill my-hp-fill" style="width:100%"></div>
+      </div>
+      <span id="my-hp-text" class="hp-text">10/10</span>
+      <span id="my-shield" class="shield-badge hidden">🛡️ 0</span>
+    </div>
+  </div>
+
+  <!-- SVG 拖拽箭头层 -->
+  <svg id="drag-svg" class="drag-svg"></svg>
+
+  <!-- 提示浮层 -->
+  <div id="toast" class="toast hidden"></div>
+</div>
+
+<!-- ============================================================
+     结算页
+     ============================================================ -->
+<div id="screen-result" class="screen">
+  <div class="result-container">
+    <div id="result-emoji" class="result-emoji">🎉</div>
+    <h2 id="result-title" class="result-title">你赢了！</h2>
+    <p id="result-detail" class="result-detail"></p>
+    <div class="result-buttons">
+      <button id="btn-rematch" class="btn btn-primary">🔄 再来一局</button>
+      <button id="btn-lobby" class="btn btn-secondary">🏠 返回大厅</button>
+    </div>
+  </div>
+</div>
+
+<!-- 脚本 -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

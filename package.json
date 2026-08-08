@@ -1,0 +1,9 @@
+{
+  "name": "number-battle",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "数字对战 — P2P 静态版，无需服务器，双击 HTML 就能玩",
+  "scripts": {
+    "start": "npx serve public"
+  }
+}
