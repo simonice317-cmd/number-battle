@@ -3,7 +3,7 @@
  * 负责将游戏状态同步到界面，不包含交互逻辑。
  */
 
-import { getCharacter, getSkillForNumber, CHARACTERS } from './game-core.js';
+import { getCharacter, getSkillForNumber, CHARACTERS, getComboAvailable } from './game-core.js';
 
 // DOM 引用缓存
 const dom = {};
@@ -71,6 +71,7 @@ export function initDomRefs() {
   dom.timerDisplay   = document.getElementById('timer-display');
   dom.turnLabel      = document.getElementById('turn-label');
   dom.actionCounter  = document.getElementById('action-counter');
+  dom.btnCombo       = document.getElementById('btn-combo');
   dom.btnEndTurn     = document.getElementById('btn-end-turn');
   dom.btnSurrender   = document.getElementById('btn-surrender');
   dom.roomCodeBadge  = document.getElementById('room-code-display');
@@ -170,6 +171,21 @@ export function renderGameState(state, myPlayerIndex) {
   } else {
     dom.btnEndTurn.classList.add('hidden');
     dom.btnSurrender.classList.add('hidden');
+  }
+
+  // 组合技按钮
+  if (dom.btnCombo) {
+    if (isMyTurn && state.phase === 'playing') {
+      const combo = getComboAvailable(me);
+      if (combo) {
+        dom.btnCombo.classList.remove('hidden');
+        dom.btnCombo.textContent = `💥 ${combo.name}`;
+      } else {
+        dom.btnCombo.classList.add('hidden');
+      }
+    } else {
+      dom.btnCombo.classList.add('hidden');
+    }
   }
 }
 

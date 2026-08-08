@@ -38,6 +38,40 @@ export const CHARACTERS = {
       6: { type: 'buff',          target: 'self_body',     value: 1, desc: '神圣号角：下次攻击伤害+1（上限1）' },
       9: { type: 'heal',          target: 'self_body',     value: 1, desc: '圣泉：回复 1 点 HP' },
     }
+  },
+  archer: {
+    id: 'archer',
+    name: '弓箭手',
+    maxHp: 3,
+    avatar: '🏹',
+    color: '#10B981',
+    skills: {
+      3: { type: 'damage', target: 'opponent_body', value: 1, desc: '快速射击：造成 1 点伤害' },
+      5: { type: 'shield', target: 'self_body',     value: 1, desc: '轻甲：获得 1 点护盾' },
+      9: { type: 'heal',   target: 'self_body',     value: 1, desc: '灵药：回复 1 点 HP' },
+    },
+    combo: {
+      name: '万箭齐发',
+      required: [3, 6],
+      effects: [
+        { type: 'damage', target: 'opponent_body', value: 2 },
+        { type: 'heal',   target: 'self_body',     value: 1 },
+      ],
+      desc: '万箭齐发：造成2点伤害并恢复1点血量',
+    }
+  },
+  thief: {
+    id: 'thief',
+    name: '盗贼',
+    maxHp: 4,
+    avatar: '🗡️',
+    color: '#8B5CF6',
+    skills: {
+      1: { type: 'steal_number',   target: 'opponent_number', value: null, desc: '偷取：复制对手一个数字的值' },
+      4: { type: 'damage',         target: 'opponent_body',   value: 1,   desc: '刺击：造成 1 点伤害' },
+      6: { type: 'steal_resource', target: 'opponent_body',   value: 1,   desc: '妙手：偷取对手1点护盾或血量（优先护盾）' },
+      7: { type: 'pierce_damage',  target: 'opponent_body',   value: 1,   desc: '重击：无视护盾直接造成1点伤害' },
+    }
   }
 };
 
@@ -190,9 +224,9 @@ export function doAdd(state, playerIndex, myNumIdx, targetNumIdx) {
 
 /**
  * 使用技能
- * 服务器已验证 skillReady + 技能合法，这里只负责执行
+ * @param {number} [targetNumIdx] — 可选，偷取数字时需要指定目标数字索引
  */
-export function useSkill(state, playerIndex, myNumIdx) {
+export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
   if (state.phase !== 'playing') {
     return { error: '游戏未在进行中' };
   }
@@ -246,6 +280,55 @@ export function useSkill(state, playerIndex, myNumIdx) {
       log = `${player.name} 回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`;
       break;
     }
+    case 'pierce_damage': {
+      // 无视护盾，直接扣血
+      const bonus = player.damageBuff || 0;
+      player.damageBuff = 0;
+      const totalDmg = skill.value + bonus;
+      opponent.hp = Math.max(0, opponent.hp - totalDmg);
+      const parts = [];
+      if (bonus > 0) parts.push(`强化攻击 +${bonus}`);
+      parts.push(`无视护盾造成 ${totalDmg} 点伤害`);
+      log = `${player.name} 发动重击！${parts.join('，')}（${opponent.name} HP: ${opponent.hp}/${opponent.maxHp}）`;
+      break;
+    }
+    case 'steal_number': {
+      // 复制对手数字的值
+      if (targetNumIdx === undefined || targetNumIdx === null) {
+        return { error: '偷取需要指定目标数字' };
+      }
+      if (targetNumIdx < 0 || targetNumIdx >= opponent.numbers.length) {
+        return { error: '无效的目标数字索引' };
+      }
+      const stolenValue = opponent.numbers[targetNumIdx].value;
+      const oldValue = num.value;
+      num.value = stolenValue;
+      // 检查新值是否有对应技能
+      const char = getCharacter(player);
+      if (char.skills[num.value] !== undefined) {
+        num.skillReady = true;
+      } else {
+        num.skillReady = false;
+      }
+      log = `${player.name} 发动偷取！数字 ${oldValue} → ${stolenValue}（复制对手的 ${stolenValue}）`;
+      break;
+    }
+    case 'steal_resource': {
+      // 优先偷护盾，没有护盾偷血
+      if (opponent.shield > 0) {
+        opponent.shield -= 1;
+        player.shield += 1;
+        log = `${player.name} 发动妙手！偷取对手 1 点护盾（自身护盾: ${player.shield}）`;
+      } else if (opponent.hp > 0) {
+        opponent.hp -= 1;
+        const healed = Math.min(1, player.maxHp - player.hp);
+        player.hp += healed;
+        log = `${player.name} 发动妙手！偷取对手 1 点血量（自身 HP: ${player.hp}/${player.maxHp}）`;
+      } else {
+        log = `${player.name} 发动妙手！但对手没有可偷取的资源`;
+      }
+      break;
+    }
     default:
       return { error: `未知技能类型: ${skill.type}` };
   }
@@ -253,6 +336,89 @@ export function useSkill(state, playerIndex, myNumIdx) {
   // 消耗技能
   num.skillReady = false;
   newState.turnActionsUsed += 1;
+
+  // 检查胜负
+  const winResult = checkWin(newState);
+  if (winResult !== null) {
+    newState.phase = 'finished';
+    newState.winner = winResult;
+    newState.winReason = 'hp_depleted';
+  }
+
+  // 操作总数用满则自动结束回合
+  if (newState.turnActionsUsed >= 2) switchTurn(newState);
+
+  return { newState, log };
+}
+
+// ============================================================
+//  组合技
+// ============================================================
+
+/** 检查玩家是否有可用组合技 */
+export function getComboAvailable(player) {
+  const char = getCharacter(player);
+  if (!char || !char.combo) return null;
+  const { required } = char.combo;
+  // 所有 required 数字都存在且 skillReady
+  const allReady = required.every(val => {
+    const num = player.numbers.find(n => n.value === val && n.skillReady);
+    return !!num;
+  });
+  if (!allReady) return null;
+  return char.combo;
+}
+
+/** 使用组合技 */
+export function useCombo(state, playerIndex) {
+  if (state.phase !== 'playing') {
+    return { error: '游戏未在进行中' };
+  }
+  if (state.currentTurn !== playerIndex) {
+    return { error: '不是你的回合' };
+  }
+  if (state.turnActionsUsed >= 2) {
+    return { error: '本回合操作次数已用完（最多2次）' };
+  }
+
+  const newState = deepClone(state);
+  const player = newState.players[playerIndex];
+  const opponent = newState.players[opponentIndex(playerIndex)];
+
+  const combo = getComboAvailable(player);
+  if (!combo) {
+    return { error: '组合技条件不满足' };
+  }
+
+  // 消耗所有 required 数字的技能
+  const logParts = [`${player.name} 发动 ${combo.name}！`];
+  for (const val of combo.required) {
+    const num = player.numbers.find(n => n.value === val && n.skillReady);
+    if (num) num.skillReady = false;
+  }
+
+  // 执行所有效果
+  for (const eff of combo.effects) {
+    switch (eff.type) {
+      case 'damage':
+        logParts.push(applyDamage(player, opponent, eff.value, player.name, opponent.name));
+        break;
+      case 'heal': {
+        const healed = Math.min(eff.value, player.maxHp - player.hp);
+        player.hp += healed;
+        logParts.push(`回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`);
+        break;
+      }
+      case 'shield':
+        player.shield += eff.value;
+        logParts.push(`获得 ${eff.value} 点护盾（当前: ${player.shield}）`);
+        break;
+    }
+  }
+
+  newState.turnActionsUsed += 1;
+
+  const log = logParts.join(' ');
 
   // 检查胜负
   const winResult = checkWin(newState);
@@ -358,12 +524,23 @@ export function resolveDragAction(player, myNumIdx, dropTargetType, targetNumIdx
   if (!num) return { action: null, error: '无效的数字' };
 
   switch (dropTargetType) {
-    case 'opponent_number':
-      // 加法（始终可用）
+    case 'opponent_number': {
+      // 优先检查是否有偷取类技能（target = opponent_number）
+      if (num.skillReady) {
+        const skill = getSkillForNumber(player, num.value);
+        if (skill && skill.target === 'opponent_number') {
+          if (targetNumIdx === undefined || targetNumIdx === null) {
+            return { action: null, error: '未指定目标数字' };
+          }
+          return { action: 'skill', params: { myNumIdx, targetNumIdx } };
+        }
+      }
+      // 否则是加法
       if (targetNumIdx === undefined || targetNumIdx === null) {
         return { action: null, error: '未指定目标数字' };
       }
       return { action: 'add', params: { myNumIdx, targetNumIdx } };
+    }
 
     case 'opponent_body':
     case 'self_body': {
@@ -400,7 +577,7 @@ export function getDragTargets(player, myNumIdx) {
     const skill = getSkillForNumber(player, num.value);
     if (skill) {
       result.canSkill = true;
-      result.skillTarget = skill.target;  // 'opponent_body' | 'self_body'
+      result.skillTarget = skill.target;  // 'opponent_body' | 'self_body' | 'opponent_number'
     }
   }
 
