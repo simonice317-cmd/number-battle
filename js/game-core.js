@@ -90,6 +90,7 @@ export function createPlayer(id, name, characterId = 'basic') {
     maxHp: char.maxHp,
     shield: 0,
     damageBuff: 0,  // 攻击强化层数（神圣号角等），上限1，下次攻击消耗
+    comboUsed: false, // 组合技使用后锁定，需做加法才能解锁
     numbers: [
       { value: 1, skillReady: false },
       { value: 1, skillReady: false }
@@ -202,6 +203,7 @@ export function doAdd(state, playerIndex, myNumIdx, targetNumIdx) {
 
   // 更新自己的数字
   myNum.value = newValue;
+  player.comboUsed = false; // 数字变了，解锁组合技
 
   // 检查新值是否有对应技能 → 设置 skillReady
   // combo.required 中的数字也需要亮（如弓箭手的6），即使没有独立技能
@@ -305,6 +307,7 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
       const stolenValue = opponent.numbers[targetNumIdx].value;
       const oldValue = num.value;
       num.value = stolenValue;
+      player.comboUsed = false; // 数字变了，解锁组合技
       // 检查新值是否有对应技能（combo.required 中的数字也需要亮）
       const char = getCharacter(player);
       const isComboValue = char.combo?.required?.includes(num.value);
@@ -362,8 +365,9 @@ export function useSkill(state, playerIndex, myNumIdx, targetNumIdx) {
 export function getComboAvailable(player) {
   const char = getCharacter(player);
   if (!char || !char.combo) return null;
+  // 用过组合技后锁定，需做一次加法才能再次使用
+  if (player.comboUsed) return null;
   const { required } = char.combo;
-  // 只需要所有 required 数字存在，不要求 skillReady（组合技独立于技能使用状态）
   const allPresent = required.every(val => {
     return player.numbers.some(n => n.value === val);
   });
@@ -392,14 +396,12 @@ export function useCombo(state, playerIndex) {
     return { error: '组合技条件不满足' };
   }
 
-  // 消耗所有 required 数字：重置为 1（组合技消耗数字，需要重新凑）
+  // 消耗所有 required 数字并锁定组合技（需做加法才能解锁）
   const logParts = [`${player.name} 发动 ${combo.name}！`];
+  player.comboUsed = true;
   for (const val of combo.required) {
     const num = player.numbers.find(n => n.value === val);
-    if (num) {
-      num.value = 1;
-      num.skillReady = false;
-    }
+    if (num) num.skillReady = false;
   }
 
   // 执行所有效果
