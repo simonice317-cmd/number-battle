@@ -639,8 +639,10 @@ function startTalentSelect() {
   app.p2pPhase = 'talent_select';
   showScreen('talentselect');
   renderTalentSelect();
-  // 重置天赋选择状态
+  // 重置天赋选择状态（防止上一局残留）
   app._localTalent2 = null;
+  app._opponentTalentLocked = false;
+  app._opponentTalentId = null;
   // 本地模式：切换到玩家1选天赋
   if (app.mode === 'local') {
     app.myPlayerIndex = 0;
@@ -740,9 +742,8 @@ function tryStartP2PGame() {
   if (app.gameState) return; // 已经创建过游戏
   if (!app.myCharacterLocked || !app.opponentCharacterLocked) return;
   if (!app.myCharacterId || !app.opponentCharacterId) return;
-  if (app.p2pPhase === 'talent_select') {
-    if (!app._opponentTalentLocked || !app._localTalent2) return;
-  }
+  // 必须双方都选了天赋才能开局
+  if (!app._localTalent2 || !app._opponentTalentLocked || !app._opponentTalentId) return;
 
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
   const p2 = createPlayer(generateId(), app.opponentName || '对手', app.opponentCharacterId);
