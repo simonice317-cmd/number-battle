@@ -1,47 +1,60 @@
 /* ============================================================
-   style.css — 数字对战 · 明亮简约 · 移动端优先
+   style.css — 数字对战 · 深色琉璃 (Dark Vitreous)
+   设计文档: 111.md | 最后更新: 2026-08-09
    ============================================================ */
+
+/* --- Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Dela+Gothic+One&display=swap');
 
 /* --- Reset & Base --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:           #0F0F1A;
-  --bg-surface:   #1A1A2E;
-  --card-glass:   rgba(255,255,255,0.06);
-  --card-border:  rgba(255,255,255,0.10);
-  --text:         #EDEDF5;
-  --text-dim:     #8888A0;
-  --primary:      #7C6FF0;
-  --primary-glow: rgba(124,111,240,0.35);
-  --accent-green: #34D399;
-  --accent-cyan:  #22D3EE;
-  --danger:       #F87171;
-  --danger-light: #FCA5A5;
-  --warning:      #FBBF24;
+  /* 色彩体系 — 来自 111.md §1.1 */
+  --bg-dark:        #08080E;
+  --bg-panel:       #11111F;
+  --bg-glass:       rgba(255,255,255,0.04);
+  --border-glass:   rgba(255,255,255,0.08);
+  --text-primary:   #FFFFFF;
+  --text-secondary: #94A3B8;
+  --color-own:      #8B5CF6;
+  --color-enemy:    #EF4444;
+  --color-action:   #F59E0B;
+  --color-success:  #10B981;
+  --color-shield:   #22D3EE;
 
-  --hp-my:        #34D399;
-  --hp-opponent:  #F87171;
-  --hp-bg:        rgba(255,255,255,0.08);
+  /* 发光 */
+  --glow-own:       0 0 15px rgba(139, 92, 246, 0.35);
+  --glow-action:    0 0 20px rgba(245, 158, 11, 0.5);
+  --glow-enemy:     0 0 15px rgba(239, 68, 68, 0.35);
+  --glow-shield:    0 0 12px rgba(34, 211, 238, 0.35);
+  --glow-success:   0 0 15px rgba(16, 185, 129, 0.35);
 
-  --radius-sm:    12px;
-  --radius:       18px;
-  --radius-lg:    24px;
-  --shadow-sm:    0 2px 8px rgba(0,0,0,0.2);
-  --shadow:       0 8px 32px rgba(0,0,0,0.3);
-  --shadow-lg:    0 16px 48px rgba(0,0,0,0.4);
-  --glass-blur:   24px;
+  /* 阴影 — §1.2 */
+  --shadow-base:    0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg:      0 16px 48px rgba(0, 0, 0, 0.4);
+  --shadow-glow:    0 8px 32px rgba(0, 0, 0, 0.3);
 
-  --avatar-size:  48px;
-  --num-card-size:72px;
+  /* 圆角 — §1.4 */
+  --radius-sm:      6px;
+  --radius-md:      12px;
+  --radius-lg:      24px;
+
+  /* 字号 — §1.3 */
+  --font-display:   "Dela Gothic One", "Montserrat", sans-serif;
+  --font-body:      "Inter", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* 尺寸 */
+  --avatar-size:    48px;
+  --num-card-size:  72px;
+  --glass-blur:     20px;
 }
 
 html, body {
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-               "Microsoft YaHei", sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: var(--font-body);
+  background: var(--bg-dark);
+  color: var(--text-primary);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -49,13 +62,25 @@ html, body {
   touch-action: manipulation;
 }
 
-/* 渐变背景叠加 */
+/* --- 动态背景 — §2.1 --- */
 body::before {
+  content: ''; position: fixed; inset: 0; z-index: -2;
+  background: var(--bg-dark);
+  pointer-events: none;
+}
+
+body::after {
   content: ''; position: fixed; inset: 0; z-index: -1;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(124,111,240,.08), transparent),
-    radial-gradient(ellipse 60% 70% at 80% 80%, rgba(34,211,238,.05), transparent);
+    radial-gradient(ellipse 80% 60% at 15% 15%, rgba(139, 92, 246, 0.07), transparent),
+    radial-gradient(ellipse 60% 70% at 85% 85%, rgba(34, 211, 238, 0.04), transparent);
+  animation: bg-drift 20s ease-in-out infinite;
   pointer-events: none;
+}
+
+@keyframes bg-drift {
+  0%, 100% { opacity: 0.8; }
+  50%      { opacity: 1; }
 }
 
 /* --- Screen Switching --- */
@@ -68,34 +93,58 @@ body::before {
 .screen.active { display: flex; flex-direction: column; }
 
 /* ============================================================
-   Lobby Screen — 玻璃拟态 + 几何背景
+   Lobby Screen — §3
    ============================================================ */
 
-/* --- 背景层 --- */
+/* --- 几何背景 --- */
 .bg-geometry {
   position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
 }
 .geo {
   position: absolute; border-radius: 24px;
-  background: linear-gradient(135deg, rgba(124,111,240,.12), rgba(34,211,238,.06));
-  border: 1px solid rgba(255,255,255,.04);
-  animation: geo-float 12s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(139,92,246,.08), rgba(34,211,238,.04));
+  border: 1px solid rgba(255,255,255,.03);
+  animation: geo-float 14s ease-in-out infinite;
 }
-.geo-1 { width: 140px; height: 140px; top: 8%;  left: -5%;  animation-delay: 0s;   border-radius: 32px; }
-.geo-2 { width: 100px; height: 100px; top: 55%; left: 85%;  animation-delay: -4s;  border-radius: 24px; transform: rotate(15deg); }
-.geo-3 { width: 90px;  height: 90px;  top: 75%; left: 15%;  animation-delay: -7s;  border-radius: 50%; }
-.geo-4 { width: 160px; height: 160px; top: 20%; left: 65%;  animation-delay: -10s; border-radius: 28px; transform: rotate(-10deg); }
+.geo-1 { width: 160px; height: 160px; top: 6%;  left: -6%;  animation-delay: 0s;   border-radius: 36px; }
+.geo-2 { width: 110px; height: 110px; top: 52%; left: 84%;  animation-delay: -4s;  border-radius: 28px; transform: rotate(15deg); }
+.geo-3 { width: 100px; height: 100px; top: 72%; left: 12%;  animation-delay: -7s;  border-radius: 50%; }
+.geo-4 { width: 170px; height: 170px; top: 18%; left: 62%;  animation-delay: -10s; border-radius: 32px; transform: rotate(-10deg); }
 .geo-ring {
-  width: 200px; height: 200px; top: 40%; left: 35%;
+  width: 220px; height: 220px; top: 38%; left: 33%;
   border-radius: 50%; background: none;
-  border: 2px solid rgba(255,255,255,.04);
-  animation: geo-float 16s ease-in-out infinite; animation-delay: -3s;
+  border: 2px solid rgba(255,255,255,.03);
+  animation: geo-float 18s ease-in-out infinite; animation-delay: -3s;
 }
 
 @keyframes geo-float {
   0%, 100% { transform: translateY(0) rotate(var(--r,0deg)); }
-  33%      { transform: translateY(-18px) rotate(calc(var(--r,0deg) + 2deg)); }
-  66%      { transform: translateY(10px) rotate(calc(var(--r,0deg) - 1deg)); }
+  33%      { transform: translateY(-20px) rotate(calc(var(--r,0deg) + 3deg)); }
+  66%      { transform: translateY(12px) rotate(calc(var(--r,0deg) - 2deg)); }
+}
+
+/* --- 顶部工具栏 — §3.1 --- */
+.lobby-toolbar {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+}
+.toolbar-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg-glass); border: 1px solid var(--border-glass);
+  color: var(--text-secondary); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .2s;
+  font-family: var(--font-body);
+}
+.toolbar-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+  box-shadow: var(--glow-own);
+}
+.toolbar-lang {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  width: auto; padding: 0 10px; border-radius: 18px;
 }
 
 /* --- 容器 --- */
@@ -103,38 +152,43 @@ body::before {
   position: relative; z-index: 1;
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 32px 20px; gap: 28px;
+  padding: 24px 20px 40px; gap: 24px;
 }
 
-/* --- 标题 --- */
+/* --- ASCII 霓虹 Logo — §3.1 --- */
 .lobby-header {
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
-.logo-mark {
-  width: 52px; height: 52px; color: var(--primary);
-  filter: drop-shadow(0 0 18px var(--primary-glow));
-  margin-bottom: 4px;
+.ascii-logo {
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  font-size: 11px; font-weight: 700; line-height: 1.15;
+  white-space: pre;
+  background: linear-gradient(180deg, #C4B5FD 0%, #8B5CF6 40%, #22D3EE 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(139,92,246,.4));
+  margin-bottom: 10px;
 }
-.logo-mark svg { width: 100%; height: 100%; }
 .game-title {
   font-size: 34px; font-weight: 800; letter-spacing: -1px;
   background: linear-gradient(135deg, #C4B5FD 0%, #FFFFFF 50%, #A5F3FC 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1.2;
+  font-family: var(--font-display);
 }
 .game-subtitle {
-  font-size: 13px; font-weight: 500; color: var(--text-dim);
+  font-size: 13px; font-weight: 500; color: var(--text-secondary);
   letter-spacing: 3px; text-transform: uppercase;
 }
 
 /* --- 玻璃主卡 --- */
 .lobby-card {
   width: 100%; max-width: 380px;
-  background: var(--card-glass);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--card-border);
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   padding: 28px 22px;
   box-shadow: var(--shadow-lg);
@@ -147,21 +201,21 @@ body::before {
   width: 100%; padding: 14px 18px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius-sm);
-  font-size: 16px; color: var(--text); text-align: center; letter-spacing: 1px;
+  border-radius: var(--radius-md);
+  font-size: 16px; color: var(--text-primary); text-align: center; letter-spacing: 1px;
   outline: none; transition: border-color .25s, box-shadow .25s, background .25s;
-  font-family: inherit;
+  font-family: var(--font-body);
 }
-.input-field::placeholder { color: rgba(255,255,255,0.20); }
+.input-field::placeholder { color: rgba(255,255,255,0.18); }
 .input-field:focus {
-  border-color: rgba(124,111,240,.5);
-  background: rgba(124,111,240,.06);
-  box-shadow: 0 0 0 4px rgba(124,111,240,.08);
+  border-color: rgba(139,92,246,.5);
+  background: rgba(139,92,246,.06);
+  box-shadow: 0 0 0 4px rgba(139,92,246,.08);
 }
 .input-bar {
   position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 0; height: 2px;
-  background: linear-gradient(90deg, var(--primary), var(--accent-cyan));
+  background: linear-gradient(90deg, var(--color-own), var(--color-shield));
   border-radius: 0 0 2px 2px;
   transition: width .35s cubic-bezier(.4,0,.2,1);
 }
@@ -174,8 +228,8 @@ body::before {
 
 .lobby-btn {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 14px 8px; border: 1px solid transparent; border-radius: var(--radius);
-  font-size: 13px; font-weight: 600; font-family: inherit;
+  padding: 14px 8px; border: 1px solid transparent; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; font-family: var(--font-body);
   cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
   position: relative; overflow: hidden;
 }
@@ -183,75 +237,119 @@ body::before {
 .lobby-btn:hover .lobby-btn__icon { opacity: 1; transform: scale(1.08); }
 .lobby-btn__text { position: relative; z-index: 1; }
 
-/* 本地对战 */
+/* 本地对战 — 紫色填充 */
 .lobby-btn--local {
-  background: linear-gradient(135deg, rgba(124,111,240,.20), rgba(124,111,240,.08));
-  border-color: rgba(124,111,240,.25); color: #C4B5FD;
+  background: linear-gradient(135deg, rgba(139,92,246,.25), rgba(139,92,246,.10));
+  border-color: rgba(139,92,246,.30); color: #C4B5FD;
 }
 .lobby-btn--local:hover {
-  background: linear-gradient(135deg, rgba(124,111,240,.35), rgba(124,111,240,.15));
-  border-color: rgba(124,111,240,.45);
-  box-shadow: 0 0 28px rgba(124,111,240,.25), inset 0 0 24px rgba(124,111,240,.05);
+  background: linear-gradient(135deg, rgba(139,92,246,.40), rgba(139,92,246,.18));
+  border-color: rgba(139,92,246,.50);
+  box-shadow: var(--glow-own), inset 0 0 24px rgba(139,92,246,.05);
   transform: translateY(-2px);
 }
 
-/* 创建房间 */
+/* 创建房间 — 青色描边 */
 .lobby-btn--create {
   background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); color: #A5B4FC;
 }
 .lobby-btn--create:hover {
-  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16);
   transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.3);
 }
 
-/* 加入房间 */
+/* 加入房间 — 青色 */
 .lobby-btn--join {
   background: rgba(34,211,238,.08); border-color: rgba(34,211,238,.18); color: #67E8F9;
 }
 .lobby-btn--join:hover {
   background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.35);
-  box-shadow: 0 0 24px rgba(34,211,238,.15);
+  box-shadow: var(--glow-shield);
   transform: translateY(-2px);
 }
 
-/* 确认加入 */
-.lobby-btn--confirm {
-  background: linear-gradient(135deg, var(--primary), #5B4FCF);
-  color: #FFF; border: none; padding: 12px 20px; font-size: 15px;
-  flex-direction: row; justify-content: center;
+/* 技能图鉴按钮 — §3.2 */
+.lobby-btn--guide {
+  background: rgba(139,92,246,.10);
+  color: #A78BFA; border: 1px solid rgba(139,92,246,.22);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; cursor: pointer; font-weight: 600; font-family: var(--font-body);
+  font-size: 14px; transition: all .2s;
 }
-.lobby-btn--confirm:hover { box-shadow: 0 4px 18px var(--primary-glow); transform: translateY(-1px); }
+.lobby-btn--guide:hover {
+  background: rgba(139,92,246,.18); border-color: rgba(139,92,246,.45);
+  transform: translateY(-1px); box-shadow: 0 4px 16px rgba(139,92,246,.2);
+}
 
-/* 加入区域 */
-.join-area { display: flex; gap: 10px; }
-.join-area .input-wrap { flex: 1; }
-.join-area .lobby-btn--confirm { white-space: nowrap; }
+/* 新手教程按钮 — §3.2 */
+.lobby-btn--tutorial {
+  background: rgba(52,211,153,.08);
+  color: #34D399; border: 1px solid rgba(52,211,153,.20);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; cursor: pointer; font-weight: 600; font-family: var(--font-body);
+  font-size: 14px; transition: all .2s;
+}
+.lobby-btn--tutorial:hover {
+  background: rgba(52,211,153,.15); border-color: rgba(52,211,153,.40);
+  transform: translateY(-1px); box-shadow: 0 4px 16px rgba(52,211,153,.15);
+}
+
+/* --- 底部信息栏 --- */
+.lobby-footer {
+  position: relative; z-index: 1;
+  text-align: center; padding-bottom: 16px;
+}
+.lobby-footer span {
+  font-size: 11px; color: rgba(255,255,255,0.15); letter-spacing: 1px;
+}
 
 /* ============================================================
-   Waiting Screen
+   Waiting Screen — §4
    ============================================================ */
 .waiting-container {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 24px; gap: 24px;
 }
-.waiting-container h2 { font-size: 20px; font-weight: 700; color: var(--text); }
-.room-code-big   { font-size: 56px; font-weight: 900; letter-spacing: 16px;
-  background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.waiting-hint    { font-size: 14px; color: var(--text-dim); text-align: center; max-width: 260px; line-height: 1.6; }
-.waiting-status  { font-size: 14px; color: var(--text-dim); }
+
+/* 房间码展示 — §4.1 */
+.room-code-big-wrap {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.room-code-big {
+  font-size: 56px; font-weight: 900; letter-spacing: 16px;
+  background: linear-gradient(135deg, var(--color-own), var(--color-shield));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: var(--font-display);
+}
+.room-code-glow {
+  width: 80px; height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-own), var(--color-shield), transparent);
+  animation: energy-pulse 2s ease-in-out infinite;
+}
+@keyframes energy-pulse {
+  0%, 100% { opacity: 0.4; transform: scaleX(0.6); }
+  50%      { opacity: 1;   transform: scaleX(1); }
+}
+
+.waiting-status  { font-size: 14px; color: var(--text-secondary); }
+.waiting-hint    { font-size: 14px; color: var(--text-secondary); text-align: center; max-width: 260px; line-height: 1.6; }
 
 .btn-leave {
   margin-top: 8px; font-size: 14px; padding: 10px 28px;
-  background: transparent; color: var(--text-dim);
-  border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; transition: all .2s;
+  font-family: var(--font-body);
 }
-.btn-leave:hover { border-color: rgba(248,113,113,.4); color: var(--danger); background: rgba(248,113,113,.06); }
+.btn-leave:hover { border-color: rgba(239,68,68,.4); color: var(--color-enemy); background: rgba(239,68,68,.06); }
 
+.waiting-dots { margin-top: 4px; }
 .waiting-dots span {
   display: inline-block; width: 6px; height: 6px;
-  background: var(--primary); border-radius: 50%; margin: 0 4px;
+  background: var(--color-own); border-radius: 50%; margin: 0 4px;
   animation: dot-bounce 1.4s infinite ease-in-out both;
 }
 .waiting-dots span:nth-child(1) { animation-delay: -0.32s; }
@@ -261,79 +359,25 @@ body::before {
   40% { transform: scale(1); }
 }
 
-/* ---- P2P 连接码交换 ---- */
+/* P2P views */
 .p2p-view { width: 100%; max-width: 400px; }
 
-.p2p-step {
-  display: flex; align-items: flex-start; gap: 10px; width: 100%; margin-bottom: 8px;
-}
-.p2p-step-num {
-  flex-shrink: 0; width: 26px; height: 26px;
-  border-radius: 50%; background: var(--primary);
-  color: #FFF; font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.p2p-step-text {
-  font-size: 14px; color: var(--text); line-height: 26px;
-}
-
-/* 连接码展示框 */
-.code-box {
-  width: 100%; display: flex; gap: 8px;
-  background: var(--bg-surface); border: 1px solid rgba(255,255,255,.08);
-  border-radius: var(--radius); padding: 10px 12px;
-  align-items: center;
-}
-.p2p-code {
-  flex: 1; font-size: 12px; font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-  color: var(--accent-cyan); word-break: break-all; line-height: 1.5;
-  max-height: 60px; overflow-y: auto;
-  user-select: all; -webkit-user-select: all;
-}
-.btn-copy {
-  flex-shrink: 0; font-size: 13px; padding: 8px 14px;
-  background: rgba(124,111,240,.2); color: var(--primary);
-  border: 1px solid rgba(124,111,240,.3); border-radius: var(--radius-sm);
-  cursor: pointer; font-weight: 600; white-space: nowrap; transition: all .2s;
-}
-.btn-copy:hover { background: rgba(124,111,240,.35); }
-.btn-copy.copied  { background: rgba(52,211,153,.25); border-color: rgba(52,211,153,.4); color: var(--accent-green); }
-
-.p2p-copy-hint {
-  font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 6px;
-}
-
-.p2p-divider {
-  display: flex; align-items: center; width: 100%; margin: 12px 0;
-}
-.p2p-divider::before, .p2p-divider::after {
-  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.08);
-}
-.p2p-divider span {
-  padding: 0 16px; font-size: 12px; color: var(--text-dim);
-}
-
-/* 连接码输入框 */
-.code-input-wrap { width: 100%; }
-.code-textarea {
-  width: 100%; resize: vertical; min-height: 44px;
-  font-size: 13px; font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-  white-space: pre-wrap; word-break: break-all;
-}
+/* 房间码输入 — §4.2 */
+.code-input-wrap { max-width: 200px; margin: 0 auto; }
 
 /* ============================================================
-   Coin Flip Screen
+   Coin Flip Screen — §5
    ============================================================ */
 .coinflip-container {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   padding: 24px; gap: 24px;
 }
-.coinflip-title  { font-size: 28px; font-weight: 800; color: var(--text); text-align: center; }
-.coinflip-subtitle { font-size: 14px; color: var(--text-dim); text-align: center; }
+.coinflip-title  { font-size: 28px; font-weight: 800; color: var(--text-primary); text-align: center; }
+.coinflip-subtitle { font-size: 14px; color: var(--text-secondary); text-align: center; }
 
-/* Coin visual */
-.coin { width: 120px; height: 120px; position: relative; margin: 16px 0; }
+/* Coin visual — §5 */
+.coin { width: 130px; height: 130px; position: relative; margin: 16px 0; perspective: 600px; }
 .coin.flipping { animation: coin-flip 2s ease-in-out; }
 @keyframes coin-flip {
   0%   { transform: rotateY(0deg) rotateX(0deg); }
@@ -345,24 +389,27 @@ body::before {
 .coin-face {
   position: absolute; inset: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 36px; font-weight: 900; backface-visibility: hidden;
+  font-size: 40px; font-weight: 900; backface-visibility: hidden;
   border: 3px solid rgba(255,255,255,0.2);
+  font-family: var(--font-display);
 }
 .coin-front {
   background: linear-gradient(135deg, #FFD700, #FFA500);
   color: #7B5B00;
+  text-shadow: 0 2px 4px rgba(0,0,0,.2);
 }
 .coin-back {
   background: linear-gradient(135deg, #C0C0C0, #808080);
   color: #333;
   transform: rotateY(180deg);
+  text-shadow: 0 2px 4px rgba(0,0,0,.2);
 }
 .coinflip-buttons { display: flex; gap: 16px; margin-top: 8px; }
 .coinflip-btn {
-  padding: 16px 32px; border-radius: var(--radius);
+  padding: 16px 32px; border-radius: var(--radius-md);
   font-size: 18px; font-weight: 700; cursor: pointer;
   border: 2px solid transparent; transition: all .2s;
-  font-family: inherit; background: transparent;
+  font-family: var(--font-body); background: transparent;
 }
 .coinflip-btn-heads {
   border-color: rgba(255,215,0,.4); color: #FFD700;
@@ -373,68 +420,70 @@ body::before {
 }
 .coinflip-btn-tails:hover { background: rgba(192,192,192,.15); transform: scale(1.05); }
 .coinflip-waiting {
-  font-size: 16px; color: var(--text-dim);
+  font-size: 16px; color: var(--text-secondary);
   animation: pulse 1.2s infinite alternate;
 }
 .coinflip-result { text-align: center; }
-.coinflip-result-text { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
-.coinflip-turn-text  { font-size: 14px; color: var(--text-dim); }
+.coinflip-result-text { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.coinflip-turn-text  { font-size: 14px; color: var(--text-secondary); }
 
 /* ============================================================
-   Character Selection Screen
+   Character Selection Screen — §6
    ============================================================ */
 .charselect-container {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   padding: 24px 16px; gap: 20px;
 }
-.charselect-title    { font-size: 24px; font-weight: 800; color: var(--text); }
-.charselect-subtitle { font-size: 14px; color: var(--text-dim); }
+.charselect-title    { font-size: 24px; font-weight: 800; color: var(--text-primary); }
+.charselect-subtitle { font-size: 14px; color: var(--text-secondary); }
 .char-cards {
   display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-  width: 100%; max-width: 500px;
+  width: 100%; max-width: 520px;
 }
 .char-card {
   width: 220px;
-  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
+  background: var(--bg-glass); backdrop-filter: blur(var(--glass-blur));
   border: 2px solid rgba(255,255,255,.08);
   border-radius: var(--radius-lg); padding: 20px 16px;
   cursor: pointer; transition: all .25s;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
+  position: relative;
 }
 .char-card:hover {
-  border-color: rgba(255,255,255,.2);
-  transform: translateY(-4px); box-shadow: var(--shadow);
+  border-color: rgba(255,255,255,.20);
+  transform: translateY(-4px); box-shadow: var(--shadow-lg);
 }
 .char-card.selected {
-  border-color: var(--primary);
-  box-shadow: 0 0 24px var(--primary-glow);
-  background: rgba(124,111,240,.08);
+  border-color: var(--color-own);
+  box-shadow: var(--glow-own);
+  background: rgba(139,92,246,.08);
 }
 .char-card.locked {
-  border-color: #FBBF24;
-  box-shadow: 0 0 16px rgba(251,191,36,.4);
-  opacity: .85; cursor: default; position: relative;
+  border-color: var(--color-action);
+  box-shadow: 0 0 16px rgba(245,158,11,.40);
+  opacity: .85; cursor: default;
 }
 .char-card.locked::after {
   content: '🔒 已锁定';
   position: absolute; top: 8px; right: 12px;
-  font-size: 11px; font-weight: 600; color: #FBBF24;
+  font-size: 11px; font-weight: 600; color: var(--color-action);
 }
 .char-card .char-avatar { font-size: 48px; }
-.char-card .char-name   { font-size: 18px; font-weight: 700; color: var(--text); }
-.char-card .char-hp     { font-size: 13px; color: var(--text-dim); }
-.char-card .char-skills { font-size: 12px; color: var(--text-dim); line-height: 1.6; text-align: left; width: 100%; }
+.char-card .char-name   { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.char-card .char-hp     { font-size: 13px; color: var(--text-secondary); }
+.char-card .char-skills { font-size: 12px; color: var(--text-secondary); line-height: 1.6; text-align: left; width: 100%; }
+.skill-line { margin-bottom: 2px; }
 .skill-num {
   display: inline-block; width: 20px; height: 20px; line-height: 20px;
-  text-align: center; border-radius: 6px;
+  text-align: center; border-radius: var(--radius-sm);
   background: rgba(255,255,255,.1); font-weight: 700;
   font-size: 12px; margin-right: 6px;
 }
 .char-card .skill-combo-info {
   margin-top: 6px; padding-top: 6px;
   border-top: 1px solid rgba(255,255,255,.08);
-  color: #F59E0B; font-weight: 600; font-size: 12px;
+  color: var(--color-action); font-weight: 600; font-size: 12px;
 }
 .char-card .combo-num { background: rgba(245,158,11,.2); }
 .charselect-status {
@@ -442,148 +491,191 @@ body::before {
 }
 
 /* ============================================================
-   Game Screen — Layout
+   Game Screen Layout — §7
    ============================================================ */
 #screen-game {
   display: none; flex-direction: column; height: 100%;
 }
 #screen-game.active { display: flex; flex-direction: column; height: 100%; }
 
+/* --- 顶栏 HUD — §7 --- */
 .top-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 16px;
-  background: rgba(255,255,255,.03); border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02); border-bottom: 1px solid rgba(255,255,255,.05);
+  z-index: 10;
 }
-.top-bar-title   { font-size: 15px; font-weight: 700; color: var(--text); }
+.top-bar-title   { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .room-code-badge {
-  font-size: 12px; color: var(--text-dim);
-  background: rgba(255,255,255,.05); padding: 4px 12px; border-radius: 20px;
+  font-size: 11px; color: var(--text-secondary);
+  background: rgba(255,255,255,.04); padding: 4px 10px; border-radius: 16px;
+}
+.top-bar-ping {
+  font-size: 11px; color: var(--text-secondary);
+  background: rgba(255,255,255,.04); padding: 4px 10px; border-radius: 16px;
 }
 
-.opponent-area { padding: 12px 16px 8px; }
+/* --- 对手区域 --- */
+.opponent-area { padding: 10px 16px 6px; }
 
-.player-info { display: flex; align-items: center; gap: 12px; }
-.opponent-info { margin-bottom: 10px; }
+.player-info { display: flex; align-items: center; gap: 10px; }
+.opponent-info { margin-bottom: 8px; }
 
 .avatar-zone {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 10px 14px; border-radius: var(--radius);
-  border: 2px dashed transparent; transition: all .25s; min-width: 70px;
+  padding: 8px 12px; border-radius: var(--radius-md);
+  border: 2px dashed transparent; transition: all .25s; min-width: 66px;
 }
 .avatar {
   width: var(--avatar-size); height: var(--avatar-size);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 28px; background: rgba(255,255,255,.05);
+  font-size: 26px; background: rgba(255,255,255,.04);
 }
 
+/* 拖拽高亮 — §7 §10 */
 .avatar-zone.drop-highlight { transform: scale(1.05); }
 .avatar-zone.opponent-avatar-zone.drop-highlight {
-  border-color: var(--danger); background: rgba(248,113,113,.10);
+  border-color: var(--color-enemy); background: rgba(239,68,68,.10);
+  border-style: dashed;
 }
 .avatar-zone.my-avatar-zone.drop-highlight {
-  border-color: var(--accent-cyan); background: rgba(34,211,238,.10);
+  border-color: var(--color-shield); background: rgba(34,211,238,.10);
+  border-style: dashed;
 }
 
-.player-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.player-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 
 /* HP */
 .hp-section { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hp-bar-wrap {
-  position: relative; width: 100%; height: 18px;
-  background: var(--hp-bg); border-radius: 9px; overflow: hidden;
+  position: relative; width: 100%; height: 16px;
+  background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
 }
 .hp-bar {
-  position: absolute; inset: 0; border-radius: 9px;
+  position: absolute; inset: 0; border-radius: 8px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.opponent-hp-bar { background: var(--hp-opponent); }
-.my-hp-bar       { background: var(--hp-my); }
-.hp-text { font-size: 13px; font-weight: 700; min-width: 40px; text-align: right; color: var(--text); }
+.opponent-hp-bar { background: var(--color-enemy); box-shadow: var(--glow-enemy); }
+.my-hp-bar       { background: var(--color-own); box-shadow: var(--glow-own); }
+.hp-text { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; color: var(--text-primary); }
 .shield-badge {
-  font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px;
-  background: rgba(34,211,238,.12); color: var(--accent-cyan);
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;
+  background: rgba(34,211,238,.12); color: var(--color-shield);
 }
 
 /* --- Numbers --- */
-.numbers-row { display: flex; gap: 14px; justify-content: center; }
-.opponent-numbers { margin-top: 6px; }
-.my-numbers       { margin-top: 8px; }
+.numbers-row { display: flex; gap: 12px; justify-content: center; }
+.opponent-numbers { margin-top: 4px; }
+.my-numbers       { margin-top: 6px; }
 
 .num-card {
   width: var(--num-card-size); height: var(--num-card-size);
-  border-radius: 20px; display: flex;
+  border-radius: 18px; display: flex;
   align-items: center; justify-content: center; position: relative;
   transition: transform .18s, box-shadow .18s, border-color .25s, background .25s;
 }
-.num-card .num-value { font-size: 30px; font-weight: 800; }
+.num-card .num-value {
+  font-size: 30px; font-weight: 800;
+  font-family: var(--font-display);
+}
 
 .num-card-opponent {
-  background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.08);
-  color: var(--text-dim);
+  background: rgba(255,255,255,.03); border: 2px solid rgba(255,255,255,.06);
+  color: var(--text-secondary);
+}
+.num-card-opponent.drop-highlight {
+  border-color: var(--color-success); background: rgba(16,185,129,.12); transform: scale(1.08);
+  border-style: dashed;
 }
 
 .num-card-mine {
-  background: rgba(255,255,255,.06); border: 2px solid rgba(124,111,240,.35);
-  color: var(--text); cursor: grab; box-shadow: var(--shadow-sm);
+  background: rgba(255,255,255,.05); border: 2px solid rgba(139,92,246,.30);
+  color: var(--text-primary); cursor: grab; box-shadow: var(--shadow-base);
 }
 .num-card-mine:active { cursor: grabbing; }
 .num-card-mine.has-skill {
-  border-color: var(--warning);
-  box-shadow: 0 0 20px rgba(251,191,36,.35);
-}
-
-.num-card-opponent.drop-highlight {
-  border-color: var(--accent-green); background: rgba(52,211,153,.12); transform: scale(1.08);
+  border-color: var(--color-action);
+  box-shadow: var(--glow-action);
 }
 .num-card-mine.dragging {
   transform: scale(1.12); box-shadow: var(--shadow-lg);
-  border-color: var(--primary); z-index: 100;
+  border-color: var(--color-own); z-index: 100;
 }
 
 .skill-dot {
   position: absolute; top: -7px; right: -7px;
   width: 22px; height: 22px; border-radius: 50%;
-  background: var(--warning); display: flex;
+  background: var(--color-action); display: flex;
   align-items: center; justify-content: center;
   font-size: 12px; animation: sparkle 1s infinite alternate;
+  box-shadow: 0 0 8px rgba(245,158,11,.5);
 }
 @keyframes sparkle {
   from { transform: scale(1); } to { transform: scale(1.2); }
 }
 
+/* --- 激光分界线 — §7 --- */
+.laser-divider {
+  width: 80%; max-width: 300px; margin: 0 auto; position: relative;
+  height: 1px;
+}
+.laser-divider::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(139,92,246,.3), rgba(34,211,238,.3), transparent);
+}
+.laser-divider::after {
+  content: ''; position: absolute; top: -2px; left: 50%; transform: translateX(-50%);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-shield);
+  box-shadow: 0 0 8px var(--color-shield);
+  animation: divider-dot 3s ease-in-out infinite;
+}
+@keyframes divider-dot {
+  0%, 100% { left: 0; opacity: 0; }
+  25%      { opacity: 1; }
+  50%      { left: 50%; opacity: 1; }
+  75%      { opacity: 1; }
+  100%     { left: 100%; opacity: 0; }
+}
+
 /* --- Center Info --- */
 .center-info {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 6px; padding: 8px 16px;
+  align-items: center; justify-content: center; gap: 5px; padding: 8px 16px;
 }
-.timer-display { font-size: 24px; font-weight: 700; color: var(--text); transition: color .3s; }
-.timer-display.warning { color: var(--danger); animation: pulse 0.5s infinite alternate; }
+.timer-display {
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
+  transition: color .3s; font-family: var(--font-display);
+}
+.timer-display.warning { color: var(--color-enemy); animation: pulse 0.5s infinite alternate; }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.5; } }
-.turn-label     { font-size: 14px; font-weight: 600; color: var(--text-dim); }
-.action-counter { font-size: 13px; color: var(--text-dim); }
+.turn-label     { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.action-counter { font-size: 12px; color: var(--text-secondary); }
 .btn-end-turn {
-  margin-top: 6px; font-size: 13px; padding: 8px 20px;
-  background: rgba(255,255,255,.06); color: var(--text-dim);
-  border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius-sm);
+  margin-top: 4px; font-size: 13px; padding: 8px 20px;
+  background: rgba(255,255,255,.05); color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; transition: all .2s;
+  font-family: var(--font-body);
 }
-.btn-end-turn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+.btn-end-turn:hover { background: rgba(255,255,255,.1); color: var(--text-primary); }
 .btn-surrender {
-  margin-top: 6px; font-size: 12px; padding: 8px 20px;
-  background: transparent; color: var(--text-dim);
-  border: 1px solid rgba(248,113,113,.2); border-radius: var(--radius-sm);
+  margin-top: 4px; font-size: 12px; padding: 8px 20px;
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid rgba(239,68,68,.15); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; transition: all .2s;
+  font-family: var(--font-body);
 }
-.btn-surrender:hover { background: rgba(248,113,113,.1); border-color: rgba(248,113,113,.4); color: var(--danger); }
+.btn-surrender:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.35); color: var(--color-enemy); }
 
-/* Combo button */
+/* Combo button — §7 + §10 */
 .btn-combo {
   margin-top: 4px; font-size: 14px; padding: 10px 24px;
-  background: linear-gradient(135deg, #F59E0B, #D97706);
-  color: #FFF; border: none; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-action), #D97706);
+  color: #FFF; border: none; border-radius: var(--radius-md);
   cursor: pointer; font-weight: 700; letter-spacing: 1px;
   box-shadow: 0 0 20px rgba(245,158,11,.4), 0 4px 12px rgba(0,0,0,.3);
-  transition: all .2s; font-family: inherit;
+  transition: all .2s; font-family: var(--font-body);
   animation: combo-glow 1.5s infinite alternate;
 }
 .btn-combo:hover {
@@ -598,45 +690,125 @@ body::before {
 /* 技能查看按钮 */
 .btn-skills {
   margin-top: 4px; font-size: 13px; padding: 8px 20px;
-  background: rgba(255,255,255,.08);
-  color: var(--text-dim); border: 1px solid rgba(255,255,255,.12);
-  border-radius: var(--radius-sm);
-  cursor: pointer; font-weight: 600; font-family: inherit;
+  background: rgba(255,255,255,.06);
+  color: var(--text-secondary); border: 1px solid rgba(255,255,255,.10);
+  border-radius: var(--radius-md);
+  cursor: pointer; font-weight: 600; font-family: var(--font-body);
   transition: all .2s;
 }
 .btn-skills:hover {
-  background: rgba(255,255,255,.14);
-  color: var(--text);
-  border-color: rgba(255,255,255,.25);
+  background: rgba(255,255,255,.12);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,.22);
 }
 
-/* 大厅技能图鉴按钮 */
-.lobby-btn--guide {
-  background: rgba(139,92,246,.08);
-  color: #A78BFA; border: 1px solid rgba(139,92,246,.25);
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 12px; cursor: pointer; font-weight: 600; font-family: inherit;
-  font-size: 14px; transition: all .2s;
+/* My info */
+.my-info { padding: 6px 16px 16px; flex-direction: row-reverse; }
+.my-info .hp-section { flex-direction: row-reverse; }
+.my-info .hp-text { text-align: left; }
+
+/* --- SVG Drag Arrow Layer --- */
+.drag-svg { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; }
+.drag-svg .drag-arrow {
+  fill: #C4B5FD;
+  stroke: rgba(255,255,255,0.25);
+  stroke-width: 0.5;
+  filter: drop-shadow(0 0 10px rgba(139,92,246,.5)) drop-shadow(0 2px 4px rgba(0,0,0,.3));
+  transition: fill .15s;
 }
-.lobby-btn--guide:hover {
-  background: rgba(139,92,246,.18); border-color: rgba(139,92,246,.45);
-  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,.2);
+.drag-svg .drag-arrow.invalid {
+  fill: rgba(255,255,255,0.15);
+  stroke: rgba(255,255,255,0.06);
+  filter: none;
 }
 
-/* 大厅新手教程按钮 */
-.lobby-btn--tutorial {
-  background: rgba(52,211,153,.08);
-  color: #34D399; border: 1px solid rgba(52,211,153,.25);
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 12px; cursor: pointer; font-weight: 600; font-family: inherit;
-  font-size: 14px; transition: all .2s;
+/* --- Toast --- */
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+  background: rgba(17,17,31,.94); backdrop-filter: blur(14px);
+  color: var(--text-primary); border: 1px solid rgba(255,255,255,.08);
+  padding: 12px 28px; border-radius: 24px;
+  font-size: 13px; font-weight: 600; z-index: 300; transition: opacity .3s;
+  font-family: var(--font-body);
 }
-.lobby-btn--tutorial:hover {
-  background: rgba(52,211,153,.18); border-color: rgba(52,211,153,.45);
-  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(52,211,153,.2);
+
+/* ============================================================
+   Skill Effects — §10
+   ============================================================ */
+
+@keyframes avatar-flash {
+  0%   { filter: drop-shadow(0 0 var(--fx-size, 12px) var(--fx-color)); transform: scale(var(--fx-scale, 1.15)); }
+  100% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
 }
+.avatar-flash-hit    { --fx-color: rgba(239,68,68,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-heal   { --fx-color: rgba(16,185,129,.8); --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-shield { --fx-color: rgba(34,211,238,.8); --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-buff   { --fx-color: rgba(245,158,11,.8); --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
+.avatar-flash-pierce { --fx-color: rgba(239,68,68,.9);  --fx-scale: 1.2;  --fx-size: 14px; animation: avatar-flash .5s ease-out; }
+.avatar-flash-steal  { --fx-color: rgba(139,92,246,.9); --fx-scale: 1.15; --fx-size: 14px; animation: avatar-flash .5s ease-out; }
+
+.float-text {
+  position: fixed; z-index: 400;
+  font-size: 22px; font-weight: 900;
+  pointer-events: none; white-space: nowrap;
+  animation: float-up 1.2s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
+  font-family: var(--font-display);
+}
+@keyframes float-up {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  50%  { opacity: .8; transform: translateY(-30px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-70px) scale(.8); }
+}
+
+/* 技能卡片脉冲 */
+.num-card-mine.skill-used {
+  animation: skill-pulse 0.6s ease-out;
+}
+@keyframes skill-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245,158,11,.6); }
+  100% { box-shadow: 0 0 0 20px rgba(245,158,11,0); }
+}
+
+/* ============================================================
+   Result Screen — §8
+   ============================================================ */
+.result-container {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px; gap: 16px;
+  position: relative; z-index: 1;
+}
+.result-emoji    { font-size: 72px; }
+.result-title    { font-size: 28px; font-weight: 800; color: var(--text-primary); }
+.result-title.win  { color: var(--color-success); text-shadow: 0 0 20px rgba(16,185,129,.4); }
+.result-title.lose { color: var(--color-enemy); text-shadow: 0 0 20px rgba(239,68,68,.4); }
+.result-detail   { font-size: 14px; color: var(--text-secondary); text-align: center; line-height: 1.6; }
+.result-buttons  { display: flex; gap: 12px; margin-top: 12px; }
+
+/* 粒子 Canvas */
+#particles-canvas {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+
+/* 故障屏效果 */
+.glitch-overlay {
+  position: fixed; inset: 0; z-index: 10; pointer-events: none;
+  animation: glitch 0.3s ease-out;
+  background: rgba(239,68,68,.08);
+}
+@keyframes glitch {
+  0%   { transform: translateX(0); opacity: 1; }
+  10%  { transform: translateX(-4px); }
+  20%  { transform: translateX(4px); }
+  30%  { transform: translateX(-2px); }
+  40%  { transform: translateX(2px); }
+  50%  { transform: translateX(0); opacity: .5; }
+  100% { opacity: 0; }
+}
+
+/* ============================================================
+   Popups & Guide — §9
+   ============================================================ */
 
 /* 技能弹窗 */
 .skill-popup {
@@ -648,17 +820,18 @@ body::before {
 
 .skill-popup-bg {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  background: rgba(0,0,0,.60); backdrop-filter: blur(6px);
 }
 
 .skill-popup-card {
   position: relative;
-  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
-  border: 2px solid rgba(255,255,255,.12);
+  background: var(--bg-glass); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 2px solid rgba(255,255,255,.10);
   border-radius: var(--radius-lg); padding: 24px 28px;
   min-width: 260px; max-width: 320px; width: 90%;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
-  box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  box-shadow: var(--shadow-lg);
   animation: popup-in .25s ease-out;
 }
 @keyframes popup-in {
@@ -667,7 +840,7 @@ body::before {
 }
 
 .skill-popup-card h3 {
-  font-size: 18px; font-weight: 700; color: var(--text); margin: 0;
+  font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;
 }
 
 /* 双栏技能弹窗 */
@@ -681,20 +854,20 @@ body::before {
   flex: 1; min-width: 0;
 }
 .skill-popup-col h4 {
-  font-size: 14px; font-weight: 700; color: var(--text);
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
   margin: 0 0 8px; padding-bottom: 6px;
   border-bottom: 1px solid rgba(255,255,255,.1);
 }
 
 #skill-popup-list {
-  width: 100%; font-size: 13px; color: var(--text-dim); line-height: 1.8;
+  width: 100%; font-size: 13px; color: var(--text-secondary); line-height: 1.8;
   text-align: left;
 }
 #skill-popup-list .skill-line { margin-bottom: 2px; }
 #skill-popup-list .skill-combo-info {
   margin-top: 8px; padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,.1);
-  color: #F59E0B; font-weight: 600;
+  color: var(--color-action); font-weight: 600;
 }
 #skill-popup-list .combo-num { background: rgba(245,158,11,.25); }
 
@@ -703,18 +876,19 @@ body::before {
   color: #636E72 !important; opacity: .5;
 }
 .combo-ready {
-  color: #F59E0B !important;
+  color: var(--color-action) !important;
 }
 
-/* 技能图鉴弹窗 */
+/* 技能图鉴弹窗 — §9.2 */
 .guide-popup-card {
   position: relative;
-  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
-  border: 2px solid rgba(255,255,255,.12);
+  background: var(--bg-glass); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 2px solid rgba(255,255,255,.10);
   border-radius: var(--radius-lg); padding: 24px 28px;
   max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
-  box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  box-shadow: var(--shadow-lg);
   animation: popup-in .25s ease-out;
 }
 .guide-popup-card h3 { font-size: 20px; font-weight: 700; }
@@ -725,38 +899,39 @@ body::before {
   gap: 14px;
 }
 .lobby-guide-char {
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: var(--radius-sm); padding: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: var(--radius-md); padding: 12px;
 }
 .lobby-guide-header {
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 8px; padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.05);
 }
 .lobby-guide-header .guide-avatar { font-size: 32px; }
-.lobby-guide-header .guide-name { font-size: 16px; font-weight: 700; color: var(--text); }
-.lobby-guide-header .guide-hp { font-size: 13px; color: var(--text-dim); margin-left: auto; }
+.lobby-guide-header .guide-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.lobby-guide-header .guide-hp { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
 
-/* 新手教程弹窗 */
+/* 新手教程弹窗 — §9.1 */
 .tutorial-popup-card {
   position: relative;
-  background: var(--card-glass); backdrop-filter: blur(var(--glass-blur));
-  border: 2px solid rgba(255,255,255,.12);
+  background: var(--bg-glass); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 2px solid rgba(255,255,255,.10);
   border-radius: var(--radius-lg); padding: 28px 32px;
   max-width: 420px; width: 90%;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
-  box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  box-shadow: var(--shadow-lg);
   animation: popup-in .25s ease-out;
 }
 .tutorial-header {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
 .tutorial-emoji { font-size: 48px; }
-.tutorial-header h3 { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
-.tutorial-counter { font-size: 12px; color: var(--text-dim); }
+.tutorial-header h3 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.tutorial-counter { font-size: 12px; color: var(--text-secondary); }
 .tutorial-body {
-  width: 100%; font-size: 14px; color: var(--text-dim); line-height: 1.8;
+  width: 100%; font-size: 14px; color: var(--text-secondary); line-height: 1.8;
   text-align: center; min-height: 120px;
 }
 .tutorial-body p { margin-bottom: 8px; }
@@ -766,7 +941,7 @@ body::before {
 }
 .tutorial-prev, .tutorial-next { flex-shrink: 0; }
 .tutorial-next.tutorial-done {
-  background: var(--accent-green); color: #0F0F1A; font-weight: 700;
+  background: var(--color-success); color: #0F0F1A; font-weight: 700;
 }
 .tutorial-dots {
   flex: 1; display: flex; justify-content: center; gap: 6px;
@@ -775,111 +950,35 @@ body::before {
   width: 8px; height: 8px; border-radius: 50%;
   background: rgba(255,255,255,.15); transition: background .2s;
 }
-.tutorial-dot.active { background: var(--accent-green); }
+.tutorial-dot.active { background: var(--color-success); }
 .tutorial-close-btn { opacity: .6; }
 .tutorial-close-btn:hover { opacity: 1; }
 
-/* My info */
-.my-info { padding: 8px 16px 16px; flex-direction: row-reverse; }
-.my-info .hp-section { flex-direction: row-reverse; }
-.my-info .hp-text { text-align: left; }
-
-/* --- SVG Drag Layer --- */
-.drag-svg { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; }
-.drag-svg .drag-arrow {
-  fill: #C4B5FD;
-  stroke: rgba(255,255,255,0.3);
-  stroke-width: 0.5;
-  filter: drop-shadow(0 0 8px rgba(124,111,240,.5)) drop-shadow(0 2px 4px rgba(0,0,0,.3));
-  transition: fill .15s;
-}
-.drag-svg .drag-arrow.invalid {
-  fill: rgba(255,255,255,0.2);
-  stroke: rgba(255,255,255,0.08);
-  filter: none;
-}
-
-/* --- Toast --- */
-.toast {
-  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
-  background: rgba(15,15,26,.92); backdrop-filter: blur(12px);
-  color: var(--text); border: 1px solid rgba(255,255,255,.1);
-  padding: 12px 28px; border-radius: 24px;
-  font-size: 13px; font-weight: 600; z-index: 300; transition: opacity .3s;
-}
-
 /* ============================================================
-   Result Screen
+   Buttons (shared)
    ============================================================ */
-.result-container {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 24px; gap: 16px;
-}
-.result-emoji    { font-size: 72px; }
-.result-title    { font-size: 28px; font-weight: 800; color: var(--text); }
-.result-detail   { font-size: 14px; color: var(--text-dim); text-align: center; line-height: 1.6; }
-.result-buttons  { display: flex; gap: 12px; margin-top: 16px; }
-
-/* ============================================================
-   Skill Effects
-   ============================================================ */
-
-/* 头像闪光 — 统一关键帧 + CSS 变量 */
-@keyframes avatar-flash {
-  0%   { filter: drop-shadow(0 0 var(--fx-size, 12px) var(--fx-color)); transform: scale(var(--fx-scale, 1.15)); }
-  100% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
-}
-.avatar-flash-hit    { --fx-color: rgba(248,113,113,.8); --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
-.avatar-flash-heal   { --fx-color: rgba(52,211,153,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
-.avatar-flash-shield { --fx-color: rgba(34,211,238,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
-.avatar-flash-buff   { --fx-color: rgba(251,191,36,.8);  --fx-scale: 1.15; animation: avatar-flash .5s ease-out; }
-.avatar-flash-pierce { --fx-color: rgba(239,68,68,.9);   --fx-scale: 1.2;  --fx-size: 14px; animation: avatar-flash .5s ease-out; }
-.avatar-flash-steal  { --fx-color: rgba(139,92,246,.9);  --fx-scale: 1.15; --fx-size: 14px; animation: avatar-flash .5s ease-out; }
-
-/* 浮动文字 */
-.float-text {
-  position: fixed; z-index: 400;
-  font-size: 22px; font-weight: 900;
-  pointer-events: none; white-space: nowrap;
-  animation: float-up 1.2s ease-out forwards;
-  text-shadow: 0 2px 8px rgba(0,0,0,.5);
-}
-@keyframes float-up {
-  0%   { opacity: 1; transform: translateY(0) scale(1); }
-  50%  { opacity: .8; transform: translateY(-30px) scale(1.2); }
-  100% { opacity: 0; transform: translateY(-70px) scale(.8); }
-}
-
-/* 技能卡片脉冲 */
-.num-card-mine.skill-used {
-  animation: skill-pulse 0.6s ease-out;
-}
-@keyframes skill-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(251,191,36,.6); }
-  100% { box-shadow: 0 0 0 20px rgba(251,191,36,0); }
-}
-
-/* Buttons (shared) */
 .btn {
-  padding: 14px 24px; border: none; border-radius: var(--radius-sm);
+  padding: 14px 24px; border: none; border-radius: var(--radius-md);
   font-size: 15px; font-weight: 700; cursor: pointer;
   transition: transform .15s, box-shadow .25s; display: flex;
-  align-items: center; justify-content: center; gap: 6px; font-family: inherit;
+  align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--font-body);
 }
 .btn:active { transform: scale(0.96); }
-.btn-primary   { background: var(--primary); color: #FFF; box-shadow: 0 4px 14px var(--primary-glow); }
-.btn-primary:hover { box-shadow: 0 6px 22px var(--primary-glow); }
-.btn-secondary { background: rgba(255,255,255,.06); color: var(--text); border: 1px solid rgba(255,255,255,.1); }
+.btn-primary   { background: var(--color-own); color: #FFF; box-shadow: 0 4px 14px rgba(139,92,246,.35); }
+.btn-primary:hover { box-shadow: 0 6px 22px rgba(139,92,246,.50); }
+.btn-secondary { background: rgba(255,255,255,.05); color: var(--text-primary); border: 1px solid rgba(255,255,255,.08); }
 .btn-secondary:hover { background: rgba(255,255,255,.1); }
 
 .hidden { display: none !important; }
 
 /* ============================================================
-   Responsive
+   Responsive — §11
    ============================================================ */
 @media (min-width: 600px) {
   :root { --num-card-size: 88px; --avatar-size: 56px; }
   .num-card .num-value { font-size: 36px; }
   .opponent-area, .my-info { padding-left: 32px; padding-right: 32px; }
   .lobby-card { max-width: 420px; }
+  .ascii-logo { font-size: 12px; }
 }

@@ -238,13 +238,88 @@ export function showResult(won, reason) {
   if (won) {
     dom.resultEmoji.textContent = '🎉';
     dom.resultTitle.textContent = '你赢了！';
+    dom.resultTitle.className = 'result-title win';
     dom.resultDetail.textContent = reason || '对手血量归零，你获得了胜利！';
+    spawnParticles(); // 胜利粒子雨
   } else {
     dom.resultEmoji.textContent = '💔';
     dom.resultTitle.textContent = '你输了';
+    dom.resultTitle.className = 'result-title lose';
     dom.resultDetail.textContent = reason || '你的血量归零，对手获得了胜利。';
+    triggerGlitch(); // 失败故障屏
   }
   showScreen('result');
+}
+
+// ============================================================
+//  胜利粒子雨 — §8
+// ============================================================
+
+function spawnParticles() {
+  const canvas = document.getElementById('particles-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = [];
+  const colors = ['#FBBF24', '#C4B5FD', '#8B5CF6', '#FFD700', '#A78BFA', '#F59E0B'];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      vx: (Math.random() - 0.5) * 2,
+      vy: Math.random() * 3 + 2,
+      size: Math.random() * 4 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      opacity: Math.random() * 0.8 + 0.2,
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx += (Math.random() - 0.5) * 0.1;
+      if (p.y > canvas.height + 10) { p.y = -10; p.x = Math.random() * canvas.width; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.opacity;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    frame++;
+    if (frame < 120) requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  requestAnimationFrame(animate);
+}
+
+// ============================================================
+//  失败故障屏 — §8
+// ============================================================
+
+function triggerGlitch() {
+  const overlay = document.createElement('div');
+  overlay.className = 'glitch-overlay';
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 400);
+}
+
+// ============================================================
+//  Ping 延迟显示
+// ============================================================
+
+/** 更新顶栏 ping 值 */
+export function updatePing(ms) {
+  const el = document.getElementById('ping-display');
+  if (!el) return;
+  el.classList.remove('hidden');
+  const color = ms < 80 ? '🟢' : ms < 200 ? '🟡' : '🔴';
+  el.textContent = `${color} ${ms}ms`;
 }
 
 // ============================================================
