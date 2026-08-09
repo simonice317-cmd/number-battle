@@ -171,7 +171,7 @@ body::after {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1.2;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
 }
 .game-subtitle {
   font-size: 13px; font-weight: 500; color: var(--text-secondary);
