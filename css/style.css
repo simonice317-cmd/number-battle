@@ -786,11 +786,18 @@ body::before {
 
 /* --- SVG Drag Layer --- */
 .drag-svg { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; }
-.drag-svg line {
-  stroke: #C4B5FD; stroke-width: 3; stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(124,111,240,.4));
+.drag-svg .drag-arrow {
+  fill: #C4B5FD;
+  stroke: rgba(255,255,255,0.3);
+  stroke-width: 0.5;
+  filter: drop-shadow(0 0 8px rgba(124,111,240,.5)) drop-shadow(0 2px 4px rgba(0,0,0,.3));
+  transition: fill .15s;
 }
-.drag-svg line.invalid { stroke: rgba(255,255,255,.15); stroke-width: 2; }
+.drag-svg .drag-arrow.invalid {
+  fill: rgba(255,255,255,0.2);
+  stroke: rgba(255,255,255,0.08);
+  filter: none;
+}
 
 /* --- Toast --- */
 .toast {
