@@ -159,16 +159,12 @@ body::after {
 .lobby-header {
   text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
-.ascii-logo {
-  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-  font-size: 11px; font-weight: 700; line-height: 1.15;
-  white-space: pre;
-  background: linear-gradient(180deg, #C4B5FD 0%, #8B5CF6 40%, #22D3EE 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 12px rgba(139,92,246,.4));
-  margin-bottom: 10px;
+.logo-mark {
+  width: 52px; height: 52px; color: var(--primary);
+  filter: drop-shadow(0 0 18px var(--primary-glow));
+  margin-bottom: 4px;
 }
+.logo-mark svg { width: 100%; height: 100%; }
 .game-title {
   font-size: 34px; font-weight: 800; letter-spacing: -1px;
   background: linear-gradient(135deg, #C4B5FD 0%, #FFFFFF 50%, #A5F3FC 100%);
@@ -980,5 +976,4 @@ body::after {
   .num-card .num-value { font-size: 36px; }
   .opponent-area, .my-info { padding-left: 32px; padding-right: 32px; }
   .lobby-card { max-width: 420px; }
-  .ascii-logo { font-size: 12px; }
 }
