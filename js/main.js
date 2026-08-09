@@ -649,16 +649,22 @@ function onConfirmTalentSelect() {
   if (app.mode === 'p2p_host') {
     app._localTalent2 = talentId;
     send('talent_locked', { talentId });
-    showToast('天赋已锁定，等待对手…', 2000);
     setTalentLocked(talentId);
+    if (app._opponentTalentLocked) {
+      showToast('双方均已锁定，正在开始…', 1500);
+    } else {
+      showToast('天赋已锁定，等待对手…', 2000);
+    }
     tryStartP2PGame(); // 条件满足时才真正启动
   } else if (app.mode === 'p2p_guest') {
     app._localTalent2 = talentId;
     send('talent_locked', { talentId });
-    showToast('天赋已锁定，等待对手…', 2000);
     setTalentLocked(talentId);
     if (app._opponentTalentLocked) {
+      getDom().talentselectWaiting.classList.remove('hidden');
       getDom().talentselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+    } else {
+      showToast('天赋已锁定，等待对手…', 2000);
     }
   } else if (app.mode === 'local') {
     if (app._localTalent1 === null) {
@@ -727,7 +733,7 @@ function tryStartP2PGame() {
   if (!app.myCharacterLocked || !app.opponentCharacterLocked) return;
   if (!app.myCharacterId || !app.opponentCharacterId) return;
   if (app.p2pPhase === 'talent_select') {
-    if (!app._opponentTalentLocked) return;
+    if (!app._opponentTalentLocked || !app._localTalent2) return;
   }
 
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
