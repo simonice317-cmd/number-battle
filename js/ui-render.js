@@ -119,12 +119,13 @@ function renderPlayer(player, prefix) {
   const hpPct  = Math.max(0, (player.hp / player.maxHp) * 100);
   if (hpBar)  hpBar.style.width = `${hpPct}%`;
   if (hpText) {
+    const hpStr = Number.isInteger(player.hp) ? player.hp.toString() : player.hp.toFixed(1);
     const maxHpStr = Number.isInteger(player.maxHp) ? player.maxHp.toString() : player.maxHp.toFixed(1);
     if (player.baseMaxHp && player.maxHp < player.baseMaxHp) {
-      hpText.textContent = `${player.hp}/${maxHpStr}（原${player.baseMaxHp}）`;
+      hpText.textContent = `${hpStr}/${maxHpStr}（原${player.baseMaxHp}）`;
       hpText.style.color = '#F87171';
     } else {
-      hpText.textContent = `${player.hp}/${maxHpStr}`;
+      hpText.textContent = `${hpStr}/${maxHpStr}`;
       hpText.style.color = '';
     }
   }
