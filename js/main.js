@@ -420,12 +420,20 @@ function handleP2PMessage(msg) {
       app._opponentTalentId = payload.talentId;
       if (app.p2pPhase === 'talent_select') {
         if (app.mode === 'p2p_host') {
-          tryStartP2PGame();
+          if (app._localTalent2) {
+            tryStartP2PGame();
+          } else {
+            showToast('对手已锁定天赋，请选择你的天赋', 2000);
+          }
         } else if (app.mode === 'p2p_guest') {
           const dom = getDom();
-          if (dom.talentselectWaiting) {
-            dom.talentselectWaiting.classList.remove('hidden');
-            dom.talentselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+          if (app._localTalent2) {
+            if (dom.talentselectWaiting) {
+              dom.talentselectWaiting.classList.remove('hidden');
+              dom.talentselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+            }
+          } else {
+            showToast('对手已锁定天赋，请选择你的天赋', 2000);
           }
         }
       }
