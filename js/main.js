@@ -45,6 +45,7 @@ const app = {
   p2pPhase: null,         // 'coin_flip' | 'char_select'
   coinFlipFirstTurn: 0,
   _localName2: '玩家2',   // 本地模式对手名字
+  opponentName: '',       // P2P 对手真实名称（通过 char_locked 传递）
 
   // 角色选择
   myCharacterId: null,
@@ -238,11 +239,12 @@ function getNickname() {
 
 /** 本地对战 — 先猜硬币，再选角色，然后开始 */
 function onLocalPlay() {
-  const name = getNickname();
+  const rawInput = getDom().inputNickname.value.trim();
+  const name = rawInput || '玩家' + (Math.floor(Math.random() * 90) + 10);
   app.mode = 'local';
   app.myPlayerName = name;
   app.myPlayerIndex = 0;
-  app._localName2 = '玩家2';
+  app._localName2 = rawInput ? '玩家2' : '玩家' + (Math.floor(Math.random() * 90) + 10);
   showScreen('coinflip');
   setupCoinFlipUI('guesser');
 }
@@ -328,10 +330,16 @@ function setupP2PHandlers() {
         // 客机等待房主发来 coin_flip_start
         break;
       case 'disconnected':
-        if (app.gameState && app.gameState.phase === 'playing') {
-          showToast('连接断开，游戏终止');
-          stopLocalTimer();
-          setTimeout(backToLobby, 1500);
+        if (app.gameState) {
+          if (app.gameState.phase === 'playing') {
+            showToast('连接断开，游戏终止');
+            stopLocalTimer();
+            setTimeout(backToLobby, 1500);
+          } else if (app.gameState.phase === 'finished') {
+            showToast('对手已断开连接');
+            const resultDom = getDom();
+            if (resultDom.btnRematch) resultDom.btnRematch.disabled = true;
+          }
         }
         break;
     }
@@ -358,7 +366,7 @@ function handleP2PMessage(msg) {
         const correct = guestGuess === result;
         // Host = index 0, Guest = index 1
         app.coinFlipFirstTurn = correct ? 1 : 0;
-        const firstName = app.coinFlipFirstTurn === 0 ? app.myPlayerName : '对手';
+        const firstName = app.coinFlipFirstTurn === 0 ? app.myPlayerName : (app.opponentName || '对手');
         showCoinFlipResult(result, guestGuess, correct, firstName, () => {
           app.p2pPhase = 'char_select';
           startCharSelect();
@@ -371,7 +379,7 @@ function handleP2PMessage(msg) {
       if (app.mode === 'p2p_guest' && app.p2pPhase === 'coin_flip') {
         const { result, guestGuess, correct, firstTurn } = payload;
         app.coinFlipFirstTurn = firstTurn;
-        const firstName = firstTurn === 1 ? app.myPlayerName : '对手';
+        const firstName = firstTurn === 1 ? app.myPlayerName : (app.opponentName || '对手');
         showCoinFlipResult(result, guestGuess, correct, firstName, () => {
           app.p2pPhase = 'char_select';
           startCharSelect();
@@ -383,6 +391,7 @@ function handleP2PMessage(msg) {
     case 'char_locked':
       app.opponentCharacterId = payload.characterId;
       app.opponentCharacterLocked = true;
+      if (payload.playerName) app.opponentName = payload.playerName;
       if (app.mode === 'p2p_host' && app.p2pPhase === 'char_select') {
         tryStartP2PGame();
       } else if (app.mode === 'p2p_guest' && app.p2pPhase === 'char_select') {
@@ -433,6 +442,25 @@ function handleP2PMessage(msg) {
         handleGuestAction(type, payload);
       }
       break;
+
+    // ---- 再来一局协议 ----
+    case 'rematch_request':
+      handleRematchRequest();
+      break;
+    case 'rematch_accept':
+      handleRematchAccept();
+      break;
+    case 'rematch_decline':
+      showToast('对手拒绝了再来一局');
+      setTimeout(backToLobby, 1500);
+      break;
+    case 'player_left': {
+      showToast('对手已离开房间');
+      const rd = getDom();
+      if (rd.btnRematch) rd.btnRematch.disabled = true;
+      if (rd.resultDetail) rd.resultDetail.textContent = '对手已离开房间。';
+      break;
+    }
 
     case 'disconnected':
       showToast('对方已断开连接');
@@ -571,10 +599,10 @@ function onConfirmCharSelect() {
   showToast('角色已锁定，等待对手…', 2000);
 
   if (app.mode === 'p2p_host') {
-    send('char_locked', { characterId: app.myCharacterId });
+    send('char_locked', { characterId: app.myCharacterId, playerName: app.myPlayerName });
     tryStartP2PGame();
   } else if (app.mode === 'p2p_guest') {
-    send('char_locked', { characterId: app.myCharacterId });
+    send('char_locked', { characterId: app.myCharacterId, playerName: app.myPlayerName });
     getDom().charselectWaiting.classList.remove('hidden');
     // 如果房主已经锁定，等待 game_start 即可
     if (app.opponentCharacterLocked) {
@@ -608,7 +636,7 @@ function tryStartP2PGame() {
   if (!app.myCharacterId || !app.opponentCharacterId) return;
 
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
-  const p2 = createPlayer(generateId(), '对手', app.opponentCharacterId);
+  const p2 = createPlayer(generateId(), app.opponentName || '对手', app.opponentCharacterId);
 
   app.gameState = createGameState(p1, p2);
   app.gameState.currentTurn = app.coinFlipFirstTurn;
@@ -866,9 +894,59 @@ function handleTurnTimeout() {
 //  再来一局 / 大厅
 // ============================================================
 
+/** 收到再来一局请求：弹窗询问 */
+function handleRematchRequest() {
+  const accepted = confirm('对手请求再来一局！是否同意？');
+  if (accepted) {
+    send('rematch_accept', {});
+    if (app.mode === 'p2p_host') {
+      startP2PRematchGame();
+    }
+  } else {
+    send('rematch_decline', {});
+    backToLobby();
+  }
+}
+
+/** 收到再来一局同意：房主建新局 */
+function handleRematchAccept() {
+  showToast('对手同意了！再来一局', 1500);
+  if (app.mode === 'p2p_host') {
+    startP2PRematchGame();
+  }
+}
+
+/** 房主：用已锁定的角色信息创建新一局，轮换先手 */
+function startP2PRematchGame() {
+  const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
+  const oppName = app.opponentName || '对手';
+  const p2 = createPlayer(generateId(), oppName, app.opponentCharacterId);
+
+  app.gameState = createGameState(p1, p2);
+  app.coinFlipFirstTurn = app.coinFlipFirstTurn === 0 ? 1 : 0;
+  app.gameState.currentTurn = app.coinFlipFirstTurn;
+  app.myPlayerIndex = 0;
+  app.myPlayerId = p1.id;
+
+  showScreen('game');
+  renderGameState(app.gameState, 0);
+  startLocalTimer();
+  const firstName = app.gameState.players[app.coinFlipFirstTurn]?.name || '';
+  showToast(`再来一局！${firstName} 先手`, 2000);
+
+  send('game_start', {
+    yourIndex: 1,
+    gameState: sanitizeGameState(app.gameState),
+    opponentName: p1.name,
+  });
+}
+
 function onRematch() {
   if (app.mode === 'p2p_host' || app.mode === 'p2p_guest') {
-    backToLobby();
+    send('rematch_request', {});
+    showToast('已发送再来一局请求，等待对手回应…', 3000);
+    const dom = getDom();
+    if (dom.btnRematch) dom.btnRematch.disabled = true;
     return;
   }
 
@@ -889,6 +967,9 @@ function onRematch() {
 
 function backToLobby() {
   stopLocalTimer();
+  if ((app.mode === 'p2p_host' || app.mode === 'p2p_guest') && app.gameState) {
+    send('player_left', {});
+  }
   p2pDisconnect();
   app.gameState = null;
   app.mode = 'local';
@@ -898,6 +979,7 @@ function backToLobby() {
   app.p2pRoomCode = '';
   app.myCharacterLocked = false;
   app.opponentCharacterLocked = false;
+  app.opponentName = '';
   app._localChar1 = null;
   showScreen('lobby');
 }
