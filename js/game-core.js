@@ -194,7 +194,7 @@ function applyWinCheck(newState) {
 
 /** 回复 HP（useSkill heal / useCombo heal 共用） */
 function applyHeal(target, amount) {
-  const healed = Math.min(amount, target.maxHp - target.hp);
+  const healed = Math.min(amount, Math.floor(target.maxHp) - target.hp);
   target.hp += healed;
   return healed;
 }
@@ -206,13 +206,14 @@ function consumeDamageBuff(source) {
   return bonus;
 }
 
-/** 重伤系统：受到实际 HP 伤害后，永久降低最大生命值 */
+/** 重伤系统：受到实际 HP 伤害后，永久降低最大生命值（支持0.5步进） */
 function applyGrievousWounds(target, actualHpLoss) {
   if (actualHpLoss <= 0) return 0;
-  const maxHpLoss = Math.ceil(actualHpLoss * 0.5);
+  const maxHpLoss = actualHpLoss * 0.5;
   if (maxHpLoss <= 0) return 0;
-  target.maxHp = Math.max(1, target.maxHp - maxHpLoss);
-  target.hp = Math.min(target.hp, target.maxHp);
+  target.maxHp = Math.max(0.5, target.maxHp - maxHpLoss);
+  // HP 保持整数，向下取整避免超过上限
+  target.hp = Math.min(target.hp, Math.floor(target.maxHp));
   return maxHpLoss;
 }
 

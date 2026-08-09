@@ -119,11 +119,12 @@ function renderPlayer(player, prefix) {
   const hpPct  = Math.max(0, (player.hp / player.maxHp) * 100);
   if (hpBar)  hpBar.style.width = `${hpPct}%`;
   if (hpText) {
+    const maxHpStr = Number.isInteger(player.maxHp) ? player.maxHp.toString() : player.maxHp.toFixed(1);
     if (player.baseMaxHp && player.maxHp < player.baseMaxHp) {
-      hpText.textContent = `${player.hp}/${player.maxHp}（原${player.baseMaxHp}）`;
+      hpText.textContent = `${player.hp}/${maxHpStr}（原${player.baseMaxHp}）`;
       hpText.style.color = '#F87171';
     } else {
-      hpText.textContent = `${player.hp}/${player.maxHp}`;
+      hpText.textContent = `${player.hp}/${maxHpStr}`;
       hpText.style.color = '';
     }
   }
@@ -518,7 +519,7 @@ const TUTORIAL_PAGES = [
     title: '护盾 & 重伤',
     html: `<p><strong>🛡️ 护盾</strong>：临时吸收伤害，<span style="color:#F87171;">回合开始时过期清零</span></p>
 <p><strong>💔 重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:#F87171;">永久减少</span></p>
-<p style="font-size:13px;color:#888;">减少量 = ceil(伤害值 × 50%)（向上取整）<br>例：受 1 点伤害 → 上限 -1，受 3 点伤害 → 上限 -2</p>
+<p style="font-size:13px;color:#888;">减少量 = 伤害值 × 50%（0.5步进）<br>例：受 1 点伤害 → 上限 -0.5，受 3 点伤害 → 上限 -1.5</p>
 <p style="font-size:13px;color:#888;">治疗技能<strong>无法</strong>恢复已损失的上限<br>只有圣骑士的组合技「圣光复苏」可以恢复</p>`,
   },
   {
