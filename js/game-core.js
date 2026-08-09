@@ -209,7 +209,7 @@ function consumeDamageBuff(source) {
 /** 重伤系统：受到实际 HP 伤害后，永久降低最大生命值 */
 function applyGrievousWounds(target, actualHpLoss) {
   if (actualHpLoss <= 0) return 0;
-  const maxHpLoss = Math.floor(actualHpLoss * 0.5);
+  const maxHpLoss = Math.ceil(actualHpLoss * 0.5);
   if (maxHpLoss <= 0) return 0;
   target.maxHp = Math.max(1, target.maxHp - maxHpLoss);
   target.hp = Math.min(target.hp, target.maxHp);
