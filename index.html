@@ -178,9 +178,31 @@
 </div>
 
 <!-- ============================================================
+     天赋选择页
+     ============================================================ -->
+<div id="screen-talentselect" class="screen">
+  <div class="talentselect-container">
+    <h2 class="talentselect-title">🌟 选择天赋</h2>
+    <p class="talentselect-subtitle" id="talentselect-subtitle">选择一项天赋，本局可使用一次（不占行动次数）</p>
+    <div class="talent-cards" id="talent-cards"></div>
+    <div class="talentselect-status">
+      <button id="btn-confirm-talent" class="btn btn-primary" disabled>锁定天赋</button>
+      <p id="talentselect-waiting" class="waiting-status hidden">等待对手选择天赋…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      对局页：主游戏界面
      ============================================================ -->
 <div id="screen-game" class="screen">
+  <!-- 局内背景装饰 -->
+  <div class="game-bg">
+    <div class="game-bg-grid"></div>
+    <div class="game-bg-glow game-bg-glow--top"></div>
+    <div class="game-bg-glow game-bg-glow--bottom"></div>
+  </div>
+
   <!-- 顶栏 -->
   <div class="top-bar">
     <span class="top-bar-title">🔢 数字对战</span>
@@ -223,7 +245,8 @@
     <div id="turn-label" class="turn-label">你的回合</div>
     <div id="action-counter" class="action-counter">本回合操作: 0/1</div>
     <div class="laser-divider"></div>
-	    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
+		    <button id="btn-talent" class="btn btn-talent hidden">🌟 天赋</button>
+		    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
 		<button id="btn-skills" class="btn btn-skills hidden">📋 技能</button>
     <button id="btn-end-turn" class="btn btn-end-turn">跳过回合 →</button>
     <button id="btn-surrender" class="btn btn-surrender">🏳️ 投降</button>
@@ -287,7 +310,18 @@
     <div id="result-emoji" class="result-emoji">🎉</div>
     <h2 id="result-title" class="result-title">你赢了！</h2>
     <p id="result-detail" class="result-detail"></p>
-    <div class="result-buttons">
+    <div id="rematch-popup" class="rematch-popup hidden">
+    <div class="rematch-popup-bg"></div>
+    <div class="rematch-popup-card">
+      <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 8px;">对手请求再来一局！</p>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">是否接受？</p>
+      <div class="rematch-popup-btns" style="display:flex;gap:10px;justify-content:center;">
+        <button id="btn-rematch-accept" class="btn btn-primary">✅ 同意</button>
+        <button id="btn-rematch-decline" class="btn btn-secondary">❌ 拒绝</button>
+      </div>
+    </div>
+  </div>
+  <div class="result-buttons">
       <button id="btn-rematch" class="btn btn-primary">🔄 再来一局</button>
       <button id="btn-lobby" class="btn btn-secondary">🏠 返回大厅</button>
     </div>

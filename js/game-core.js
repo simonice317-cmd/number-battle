@@ -98,6 +98,34 @@ export const CHARACTERS = {
 };
 
 // ============================================================
+//  天赋注册表
+// ============================================================
+
+export const TALENTS = {
+  heal_2: {
+    id: 'heal_2',
+    name: '生命恢复',
+    icon: '💚',
+    desc: '恢复 2 点 HP（不超过当前上限）',
+    effect: 'heal_2',
+  },
+  restore_max: {
+    id: 'restore_max',
+    name: '上限修复',
+    icon: '💪',
+    desc: '恢复 2 点生命上限（不超过初始上限）',
+    effect: 'restore_max',
+  },
+  hp_lock: {
+    id: 'hp_lock',
+    name: '绝地求生',
+    icon: '🛡️',
+    desc: '一回合内 HP 和上限不会降到 1 以下',
+    effect: 'hp_lock',
+  },
+};
+
+// ============================================================
 //  创建初始状态
 // ============================================================
 
@@ -114,6 +142,9 @@ export function createPlayer(id, name, characterId = 'basic') {
     shield: 0,
     damageBuff: 0,  // 攻击强化层数（神圣号角等），上限1，下次攻击消耗
     comboUsed: false, // 组合技使用后锁定，需做加法才能解锁
+    talentId: null,   // 本局选择的天赋 ID
+    talentUsed: false, // 天赋本局是否已使用
+    hpLocked: false,  // hp_lock 天赋效果：HP 不低于 1
     numbers: [
       { value: 1, skillReady: false },
       { value: 1, skillReady: false }
@@ -449,8 +480,58 @@ export function useCombo(state, playerIndex) {
 }
 
 /**
- * 造成伤害，护盾优先吸收
+ * 使用天赋：一次性、不消耗行动次数
+ * @returns {{ newState, log }} 或 { error }
  */
+export function useTalent(state, playerIndex) {
+  if (state.phase !== 'playing') return { error: '游戏未在进行中' };
+  if (state.currentTurn !== playerIndex) return { error: '不是你的回合' };
+
+  const newState = deepClone(state);
+  const player = newState.players[playerIndex];
+
+  if (!player.talentId) return { error: '未选择天赋' };
+  if (player.talentUsed) return { error: '天赋已在本局使用过' };
+
+  const talent = TALENTS[player.talentId];
+  if (!talent) return { error: '未知天赋' };
+
+  let log = '';
+  player.talentUsed = true;
+
+  switch (talent.effect) {
+    case 'heal_2': {
+      const healed = applyHeal(player, 2);
+      log = `${player.name} 使用天赋「${talent.name}」！回复 ${healed} 点 HP（当前: ${player.hp}/${player.maxHp}）`;
+      break;
+    }
+    case 'restore_max': {
+      const oldMax = player.maxHp;
+      player.maxHp = Math.min(player.baseMaxHp, player.maxHp + 2);
+      player.hp = Math.min(player.hp, player.maxHp);
+      const restored = player.maxHp - oldMax;
+      log = `${player.name} 使用天赋「${talent.name}」！生命上限恢复 ${restored} 点（${oldMax}→${player.maxHp}，HP: ${player.hp}/${player.maxHp}）`;
+      break;
+    }
+    case 'hp_lock': {
+      player.hpLocked = true;
+      log = `${player.name} 使用天赋「${talent.name}」！本回合 HP 和上限不会降到 1 以下`;
+      break;
+    }
+    default:
+      player.talentUsed = false;
+      return { error: `未知天赋效果: ${talent.effect}` };
+  }
+
+  // 不调用 finalizeAction — 天赋不消耗行动次数
+  // 不自动切换回合 — 玩家还可以继续操作
+
+  return { newState, log };
+}
+
+// ============================================================
+//  伤害计算
+// ============================================================
 function applyDamage(source, target, damage, sourceName, targetName) {
   const bonus = consumeDamageBuff(source);
   let remaining = damage + bonus;
@@ -466,11 +547,18 @@ function applyDamage(source, target, damage, sourceName, targetName) {
   }
 
   if (remaining > 0) {
-    target.hp = Math.max(0, target.hp - remaining);
-    logParts.push(`造成 ${remaining} 点伤害`);
-    // 重伤系统：实际扣血后永久降低上限
-    const gwLost = applyGrievousWounds(target, remaining);
-    if (gwLost > 0) logParts.push(`上限-${gwLost}`);
+    if (target.hpLocked) {
+      // hp_lock 天赋：HP 和上限最低为 1
+      target.hp = Math.max(1, target.hp - remaining);
+      target.maxHp = Math.max(1, target.maxHp);
+      logParts.push(`造成 ${remaining} 点伤害（锁血保护，HP不低于1）`);
+    } else {
+      target.hp = Math.max(0, target.hp - remaining);
+      logParts.push(`造成 ${remaining} 点伤害`);
+      // 重伤系统：实际扣血后永久降低上限
+      const gwLost = applyGrievousWounds(target, remaining);
+      if (gwLost > 0) logParts.push(`上限-${gwLost}`);
+    }
   }
 
   return `${sourceName} 发动攻击！${logParts.join('，')}（${targetName} HP: ${target.hp}/${target.maxHp}）`;
@@ -520,6 +608,10 @@ function switchTurn(state) {
   const incoming = state.players[state.currentTurn];
   if (incoming.shield > 0) {
     incoming.shield = 0;
+  }
+  // hp_lock 天赋到期：新回合开始时清除锁血效果
+  if (incoming.hpLocked) {
+    incoming.hpLocked = false;
   }
 }
 

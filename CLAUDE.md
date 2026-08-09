@@ -90,8 +90,24 @@ main.js:
 | Host→Guest | `game_start` | `{ yourIndex, gameState, opponentName }` |
 | Host→Guest | `state_update` | `{ gameState }` |
 | Host→Guest | `coin_result` | `{ result, guestGuess, correct, firstTurn }` |
-| Guest→Host | `coin_guess` / `do_add` / `use_skill` / `use_combo` / `end_turn` / `surrender` |
-| 双向 | `char_locked` | `{ characterId }` |
+| Guest→Host | `coin_guess` / `do_add` / `use_skill` / `use_combo` / `use_talent` / `end_turn` / `surrender` |
+| 双向 | `char_locked` | `{ characterId, playerName }` |
+| 双向 | `talent_locked` | `{ talentId }` |
+| 双向 | `rematch_request` / `rematch_accept` / `rematch_decline` / `player_left` |
+
+## 天赋系统
+
+三个天赋，局外选择（角色选定后），局内一次性使用，不占行动次数：
+
+| ID | 名称 | 图标 | 效果 |
+|----|------|------|------|
+| `heal_2` | 生命恢复 | 💚 | 恢复 2 点 HP（不超过上限） |
+| `restore_max` | 上限修复 | 💪 | 恢复 2 点 maxHp（不超过 baseMaxHp） |
+| `hp_lock` | 绝地求生 | 🛡️ | HP/maxHp 不低于 1，持续到己方下回合开始 |
+
+**Player 新增字段**: `talentId`, `talentUsed`, `hpLocked`
+**相关函数**: `useTalent(state, playerIdx)` in game-core.js
+**流程**: 角色选择 → 天赋选择 (`screen-talentselect`) → 开战
 
 ## 注意事项
 

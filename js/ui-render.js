@@ -3,7 +3,7 @@
  * 负责将游戏状态同步到界面，不包含交互逻辑。
  */
 
-import { getCharacter, getSkillForNumber, CHARACTERS, getComboAvailable } from './game-core.js';
+import { getCharacter, getSkillForNumber, CHARACTERS, getComboAvailable, TALENTS } from './game-core.js';
 
 // DOM 引用缓存
 const dom = {};
@@ -15,8 +15,9 @@ export function initDomRefs() {
     waiting:   document.getElementById('screen-waiting'),
     coinflip:  document.getElementById('screen-coinflip'),
     charselect:document.getElementById('screen-charselect'),
-    game:      document.getElementById('screen-game'),
-    result:    document.getElementById('screen-result'),
+    game:         document.getElementById('screen-game'),
+    result:       document.getElementById('screen-result'),
+    talentselect: document.getElementById('screen-talentselect'),
   };
 
   // Lobby
@@ -72,6 +73,7 @@ export function initDomRefs() {
   dom.turnLabel      = document.getElementById('turn-label');
   dom.actionCounter  = document.getElementById('action-counter');
   dom.btnCombo       = document.getElementById('btn-combo');
+  dom.btnTalent      = document.getElementById('btn-talent');
   dom.btnSkills      = document.getElementById('btn-skills');
   dom.skillPopup     = document.getElementById('skill-popup');
   dom.skillPopupTitle = document.getElementById('skill-popup-title');
@@ -92,6 +94,17 @@ export function initDomRefs() {
   dom.resultDetail = document.getElementById('result-detail');
   dom.btnRematch   = document.getElementById('btn-rematch');
   dom.btnLobby     = document.getElementById('btn-lobby');
+
+  // Rematch popup
+  dom.rematchPopup       = document.getElementById('rematch-popup');
+  dom.btnRematchAccept   = document.getElementById('btn-rematch-accept');
+  dom.btnRematchDecline  = document.getElementById('btn-rematch-decline');
+
+  // Talent select
+  dom.talentCards        = document.getElementById('talent-cards');
+  dom.btnConfirmTalent   = document.getElementById('btn-confirm-talent');
+  dom.talentselectWaiting = document.getElementById('talentselect-waiting');
+  dom.talentselectSubtitle = document.getElementById('talentselect-subtitle');
 }
 
 /** 切换页面 */
@@ -189,6 +202,22 @@ export function renderGameState(state, myPlayerIndex) {
     dom.btnEndTurn.classList.add('hidden');
     dom.btnSurrender.classList.add('hidden');
     if (dom.btnSkills) dom.btnSkills.classList.add('hidden');
+  }
+
+  // 天赋按钮
+  if (dom.btnTalent) {
+    if (isMyTurn && state.phase === 'playing' && me.talentId && !me.talentUsed) {
+      dom.btnTalent.classList.remove('hidden');
+      const talent = getTalentInfo(me.talentId);
+      dom.btnTalent.textContent = `🌟 ${talent ? talent.name : '天赋'}`;
+      dom.btnTalent.classList.remove('used');
+    } else if (me.talentUsed) {
+      dom.btnTalent.classList.remove('hidden');
+      dom.btnTalent.textContent = '🌟 已使用';
+      dom.btnTalent.classList.add('used');
+    } else {
+      dom.btnTalent.classList.add('hidden');
+    }
   }
 
   // 组合技按钮
@@ -560,6 +589,108 @@ export function setCharLocked(charId) {
   if (dom.btnConfirmChar) {
     dom.btnConfirmChar.textContent = '已锁定 ✓';
     dom.btnConfirmChar.disabled = true;
+  }
+}
+
+// ============================================================
+//  天赋选择
+// ============================================================
+
+/** 获取天赋信息 */
+export function getTalentInfo(talentId) {
+  return TALENTS[talentId] || null;
+}
+
+/** 渲染天赋选择卡片 */
+export function renderTalentSelect() {
+  const container = dom.talentCards;
+  if (!container) return;
+  container.innerHTML = '';
+
+  Object.values(TALENTS).forEach(talent => {
+    const card = document.createElement('div');
+    card.className = 'talent-card';
+    card.dataset.talentId = talent.id;
+    card.innerHTML = `
+      <div class="talent-icon">${talent.icon}</div>
+      <div class="talent-name">${talent.name}</div>
+      <div class="talent-desc">${talent.desc}</div>
+    `;
+    card.addEventListener('click', () => {
+      container.querySelectorAll('.talent-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      if (dom.btnConfirmTalent) dom.btnConfirmTalent.disabled = false;
+    });
+    container.appendChild(card);
+  });
+
+  if (dom.btnConfirmTalent) dom.btnConfirmTalent.disabled = true;
+  if (dom.talentselectWaiting) dom.talentselectWaiting.classList.add('hidden');
+}
+
+/** 标记天赋卡片为已锁定 */
+export function setTalentLocked(talentId) {
+  const cards = document.querySelectorAll('.talent-card');
+  cards.forEach(card => {
+    if (card.dataset.talentId === talentId) {
+      card.classList.add('locked');
+    }
+    card.style.pointerEvents = 'none';
+  });
+  if (dom.btnConfirmTalent) {
+    dom.btnConfirmTalent.textContent = '已锁定 ✓';
+    dom.btnConfirmTalent.disabled = true;
+  }
+}
+
+// ============================================================
+//  再来一局浮窗
+// ============================================================
+
+/** 显示再来一局请求浮窗，返回 Promise<boolean> */
+export function showRematchPopup() {
+  return new Promise((resolve) => {
+    if (!dom.rematchPopup) { resolve(false); return; }
+    dom.rematchPopup.classList.remove('hidden');
+
+    const cleanup = () => {
+      dom.rematchPopup.classList.add('hidden');
+      if (dom.btnRematchAccept) dom.btnRematchAccept.replaceWith(dom.btnRematchAccept.cloneNode(true));
+      if (dom.btnRematchDecline) dom.btnRematchDecline.replaceWith(dom.btnRematchDecline.cloneNode(true));
+    };
+
+    if (dom.btnRematchAccept) {
+      dom.btnRematchAccept.addEventListener('click', () => { cleanup(); resolve(true); }, { once: true });
+    }
+    if (dom.btnRematchDecline) {
+      dom.btnRematchDecline.addEventListener('click', () => { cleanup(); resolve(false); }, { once: true });
+    }
+    // 点击背景也视为拒绝
+    const bg = dom.rematchPopup.querySelector('.rematch-popup-bg');
+    if (bg) {
+      bg.addEventListener('click', () => { cleanup(); resolve(false); }, { once: true });
+    }
+  });
+}
+
+/** 隐藏再来一局浮窗 */
+export function hideRematchPopup() {
+  if (dom.rematchPopup) dom.rematchPopup.classList.add('hidden');
+}
+
+// ============================================================
+//  天赋特效
+// ============================================================
+
+/** 显示天赋使用特效 */
+export function showTalentEffect(talentId, myAvatarEl) {
+  const talent = TALENTS[talentId];
+  if (!talent) return;
+
+  if (myAvatarEl) {
+    const color = talentId === 'hp_lock' ? '#FBBF24' : '#34D399';
+    const text = talentId === 'hp_lock' ? '🛡️锁血' : talent.icon;
+    showSkillEffect(myAvatarEl, text, color, 'avatar-flash-heal');
   }
 }
 

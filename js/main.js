@@ -8,10 +8,10 @@
  */
 
 import {
-  CHARACTERS,
+  CHARACTERS, TALENTS,
   createPlayer, createGameState,
   doAdd, useSkill, endTurn, surrender, resolveDragAction,
-  getComboAvailable, useCombo,
+  getComboAvailable, useCombo, useTalent,
   generateId,
 } from './game-core.js';
 
@@ -22,6 +22,8 @@ import {
   renderCharSelect, showSkillEffect,
   showSkillPopup, hideSkillPopup,
   showLobbyGuide, setCharLocked, showTutorial,
+  renderTalentSelect, setTalentLocked, showRematchPopup, hideRematchPopup,
+  showTalentEffect,
 } from './ui-render.js';
 
 import { initDrag } from './drag-handler.js';
@@ -46,12 +48,17 @@ const app = {
   coinFlipFirstTurn: 0,
   _localName2: '玩家2',   // 本地模式对手名字
   opponentName: '',       // P2P 对手真实名称（通过 char_locked 传递）
+  _localTalent2: null,    // 本地模式对手天赋ID
+  _localChar2: null,       // 本地模式玩家2的角色ID
+  _localTalent1: null,     // 本地模式玩家1的天赋ID
 
   // 角色选择
   myCharacterId: null,
   myCharacterLocked: false,
   opponentCharacterId: null,
   opponentCharacterLocked: false,
+  _opponentTalentLocked: false, // P2P 对手是否锁定天赋
+  _opponentTalentId: null,     // P2P 对手的天赋ID
   _localChar1: null,       // 本地模式玩家1的角色ID
 };
 
@@ -120,6 +127,12 @@ function bindEvents() {
 
   // 角色选择确认
   document.getElementById('btn-confirm-char')?.addEventListener('click', onConfirmCharSelect);
+
+  // 天赋选择确认
+  document.getElementById('btn-confirm-talent')?.addEventListener('click', onConfirmTalentSelect);
+
+  // 天赋按钮
+  document.getElementById('btn-talent')?.addEventListener('click', handleTalent);
 
   // 组合技按钮
   document.getElementById('btn-combo')?.addEventListener('click', handleCombo);
@@ -234,17 +247,16 @@ const SKILL_EFFECTS = {
 
 function getNickname() {
   const name = getDom().inputNickname.value.trim();
-  return name || '玩家' + (Math.floor(Math.random() * 90) + 10);
+  return name || '玩家A';
 }
 
 /** 本地对战 — 先猜硬币，再选角色，然后开始 */
 function onLocalPlay() {
   const rawInput = getDom().inputNickname.value.trim();
-  const name = rawInput || '玩家' + (Math.floor(Math.random() * 90) + 10);
   app.mode = 'local';
-  app.myPlayerName = name;
+  app.myPlayerName = rawInput || '玩家A';
   app.myPlayerIndex = 0;
-  app._localName2 = rawInput ? '玩家2' : '玩家' + (Math.floor(Math.random() * 90) + 10);
+  app._localName2 = rawInput ? '玩家2' : '玩家B';
   showScreen('coinflip');
   setupCoinFlipUI('guesser');
 }
@@ -392,12 +404,29 @@ function handleP2PMessage(msg) {
       app.opponentCharacterId = payload.characterId;
       app.opponentCharacterLocked = true;
       if (payload.playerName) app.opponentName = payload.playerName;
-      if (app.mode === 'p2p_host' && app.p2pPhase === 'char_select') {
-        tryStartP2PGame();
-      } else if (app.mode === 'p2p_guest' && app.p2pPhase === 'char_select') {
+      if (app.p2pPhase === 'char_select' && app.myCharacterLocked) {
+        startTalentSelect();
+      } else if (app.p2pPhase === 'char_select') {
         const dom = getDom();
         if (dom.charselectWaiting) {
-          dom.charselectWaiting.textContent = app.myCharacterLocked ? '双方均已锁定，等待房主开始…' : '对方已锁定，请选择并锁定角色';
+          dom.charselectWaiting.textContent = '对方已锁定，请选择并锁定角色';
+        }
+      }
+      break;
+
+    // ---- 天赋选择 ----
+    case 'talent_locked':
+      app._opponentTalentLocked = true;
+      app._opponentTalentId = payload.talentId;
+      if (app.p2pPhase === 'talent_select') {
+        if (app.mode === 'p2p_host') {
+          tryStartP2PGame();
+        } else if (app.mode === 'p2p_guest') {
+          const dom = getDom();
+          if (dom.talentselectWaiting) {
+            dom.talentselectWaiting.classList.remove('hidden');
+            dom.talentselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+          }
         }
       }
       break;
@@ -436,6 +465,7 @@ function handleP2PMessage(msg) {
     case 'do_add':
     case 'use_skill':
     case 'use_combo':
+    case 'use_talent':
     case 'end_turn':
     case 'surrender':
       if (app.mode === 'p2p_host') {
@@ -484,6 +514,9 @@ function handleGuestAction(type, payload) {
     case 'use_combo':
       result = useCombo(gs, 1);
       break;
+    case 'use_talent':
+      result = useTalent(gs, 1);
+      break;
     case 'end_turn':
       result = endTurn(gs, 1);
       break;
@@ -505,6 +538,7 @@ function handleGuestAction(type, payload) {
     if (guestChar?.combo) showComboEffect(guestChar.combo, getDom().myAvatar, getDom().opponentAvatar);
   }
   if (type === 'use_skill') showDragSkillEffect(gs, payload, 1); // guest = player index 1
+  if (type === 'use_talent') showTalentEffect(gs.players[1].talentId, getDom().opponentAvatar);
 
   applyActionResult(result, { broadcast: true, tail: 'resetTimer' });
 }
@@ -522,6 +556,9 @@ function rebuildGameState(s) {
       shield: p.shield,
       damageBuff: p.damageBuff || 0,
       comboUsed: p.comboUsed || false,      // 修复：之前缺失导致P2P同步后组合技锁失效
+      talentId: p.talentId || null,
+      talentUsed: p.talentUsed || false,
+      hpLocked: p.hpLocked || false,
       numbers: p.numbers.map(n => ({ value: n.value, skillReady: n.skillReady })),
     })),
     currentTurn: s.currentTurn,
@@ -585,7 +622,60 @@ function startCharSelect() {
   app.myCharacterLocked = false;
   app.opponentCharacterLocked = false;
   app._localChar1 = null;
+  app._localTalent2 = null;
   if (app.mode === 'p2p_host') app.opponentCharacterId = null;
+}
+
+/** 天赋选择阶段：角色锁定后进入 */
+function startTalentSelect() {
+  app.p2pPhase = 'talent_select';
+  showScreen('talentselect');
+  renderTalentSelect();
+  // 重置天赋选择状态
+  app._localTalent2 = null;
+  // 本地模式：切换到玩家1选天赋
+  if (app.mode === 'local') {
+    app.myPlayerIndex = 0;
+    app._localTalent1 = null;
+    getDom().talentselectSubtitle.textContent = `${app.myPlayerName}，请选择你的天赋`;
+  }
+}
+
+function onConfirmTalentSelect() {
+  const selectedEl = document.querySelector('.talent-card.selected');
+  if (!selectedEl) { showToast('请先选择一个天赋'); return; }
+  const talentId = selectedEl.dataset.talentId;
+
+  if (app.mode === 'p2p_host') {
+    app._localTalent2 = talentId;
+    send('talent_locked', { talentId });
+    showToast('天赋已锁定，等待对手…', 2000);
+    setTalentLocked(talentId);
+    tryStartP2PGame(); // 条件满足时才真正启动
+  } else if (app.mode === 'p2p_guest') {
+    app._localTalent2 = talentId;
+    send('talent_locked', { talentId });
+    showToast('天赋已锁定，等待对手…', 2000);
+    setTalentLocked(talentId);
+    if (app._opponentTalentLocked) {
+      getDom().talentselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+    }
+  } else if (app.mode === 'local') {
+    if (app._localTalent1 === null) {
+      // P1 锁定天赋 → 切换给 P2
+      app._localTalent1 = talentId;
+      setTalentLocked(talentId);
+      showSwitchOverlay(app._localName2, () => {
+        app.myPlayerIndex = 1;
+        renderTalentSelect();
+        getDom().talentselectSubtitle.textContent = `${app._localName2}，请选择你的天赋`;
+        showToast(`${app._localName2}，请选择你的天赋`, 2500);
+      });
+    } else {
+      // P2 也锁定了 → 开战
+      startLocalGameWithChars(app._localChar1, app._localChar2, app._localTalent1, talentId);
+    }
+  }
 }
 
 function onConfirmCharSelect() {
@@ -600,13 +690,13 @@ function onConfirmCharSelect() {
 
   if (app.mode === 'p2p_host') {
     send('char_locked', { characterId: app.myCharacterId, playerName: app.myPlayerName });
-    tryStartP2PGame();
+    if (app.opponentCharacterLocked) startTalentSelect();
   } else if (app.mode === 'p2p_guest') {
     send('char_locked', { characterId: app.myCharacterId, playerName: app.myPlayerName });
     getDom().charselectWaiting.classList.remove('hidden');
-    // 如果房主已经锁定，等待 game_start 即可
     if (app.opponentCharacterLocked) {
       getDom().charselectWaiting.textContent = '双方均已锁定，等待房主开始…';
+      startTalentSelect();
     }
   } else if (app.mode === 'local') {
     if (!app._localChar1) {
@@ -620,8 +710,9 @@ function onConfirmCharSelect() {
         showToast(`${app._localName2}，请选择并锁定角色`, 2500);
       });
     } else {
-      // 玩家2锁定 → 开战
-      startLocalGameWithChars(app._localChar1, app.myCharacterId);
+      // 玩家2锁定 → 进入天赋选择
+      app._localChar2 = app.myCharacterId;
+      startTalentSelect();
     }
   }
 }
@@ -630,13 +721,19 @@ function onConfirmCharSelect() {
 //  游戏启动
 // ============================================================
 
-/** 房主：确认双方都锁定角色后启动 */
+/** 房主：确认双方都锁定角色和天赋后启动 */
 function tryStartP2PGame() {
+  if (app.gameState) return; // 已经创建过游戏
   if (!app.myCharacterLocked || !app.opponentCharacterLocked) return;
   if (!app.myCharacterId || !app.opponentCharacterId) return;
+  if (app.p2pPhase === 'talent_select') {
+    if (!app._opponentTalentLocked) return;
+  }
 
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
   const p2 = createPlayer(generateId(), app.opponentName || '对手', app.opponentCharacterId);
+  p1.talentId = app._localTalent2 || null;
+  p2.talentId = app._opponentTalentId || null;
 
   app.gameState = createGameState(p1, p2);
   app.gameState.currentTurn = app.coinFlipFirstTurn;
@@ -657,15 +754,18 @@ function tryStartP2PGame() {
   });
 }
 
-/** 本地模式：双方选定角色后启动游戏 */
-function startLocalGameWithChars(charId1, charId2) {
+/** 本地模式：双方选定角色和天赋后启动游戏 */
+function startLocalGameWithChars(charId1, charId2, talentId1, talentId2) {
   const firstTurn = app.coinFlipFirstTurn;
   const p1 = createPlayer(generateId(), app.myPlayerName, charId1);
   const p2 = createPlayer(generateId(), app._localName2, charId2);
+  p1.talentId = talentId1 || null;
+  p2.talentId = talentId2 || null;
 
   app.gameState = createGameState(p1, p2);
   app.gameState.currentTurn = firstTurn;
   app.myPlayerIndex = firstTurn;
+  if (firstTurn === 0) app.myPlayerId = p1.id; else app.myPlayerId = p2.id;
   setRoomCode('本地');
   showScreen('game');
   renderGameState(app.gameState, app.myPlayerIndex);
@@ -766,6 +866,31 @@ function handleCombo() {
 
   if (combo) showComboEffect(combo, getDom().opponentAvatar, getDom().myAvatar);
   applyActionResult(result, { broadcast, tail: broadcast ? 'resetTimer' : 'checkTurn' });
+}
+
+// ============================================================
+//  天赋
+// ============================================================
+
+function handleTalent() {
+  const gs = app.gameState;
+  if (!gs || gs.phase !== 'playing') return;
+  if (gs.currentTurn !== app.myPlayerIndex) { showToast('不是你的回合'); return; }
+
+  if (app.mode === 'p2p_guest') { send('use_talent', {}); return; }
+
+  const broadcast = app.mode === 'p2p_host';
+  const result = useTalent(gs, app.myPlayerIndex);
+  if (result.error) { showToast(result.error); return; }
+
+  app.gameState = result.newState;
+  renderGameState(app.gameState, app.myPlayerIndex);
+  if (result.log) showToast(result.log, 2500);
+
+  const me = result.newState.players[app.myPlayerIndex];
+  showTalentEffect(me.talentId, getDom().myAvatar);
+
+  if (broadcast) send('state_update', { gameState: sanitizeGameState(app.gameState) });
 }
 
 // ============================================================
@@ -894,17 +1019,19 @@ function handleTurnTimeout() {
 //  再来一局 / 大厅
 // ============================================================
 
-/** 收到再来一局请求：弹窗询问 */
-function handleRematchRequest() {
-  const accepted = confirm('对手请求再来一局！是否同意？');
+/** 收到再来一局请求：浮窗询问 */
+async function handleRematchRequest() {
+  const accepted = await showRematchPopup();
   if (accepted) {
     send('rematch_accept', {});
+    showToast('已同意，等待开始…', 2000);
     if (app.mode === 'p2p_host') {
       startP2PRematchGame();
     }
   } else {
     send('rematch_decline', {});
-    backToLobby();
+    showToast('已拒绝再来一局', 1500);
+    setTimeout(backToLobby, 1500);
   }
 }
 
@@ -916,11 +1043,14 @@ function handleRematchAccept() {
   }
 }
 
-/** 房主：用已锁定的角色信息创建新一局，轮换先手 */
+/** 房主：用已锁定的角色和天赋信息创建新一局，轮换先手 */
 function startP2PRematchGame() {
   const p1 = createPlayer(generateId(), app.myPlayerName, app.myCharacterId);
   const oppName = app.opponentName || '对手';
   const p2 = createPlayer(generateId(), oppName, app.opponentCharacterId);
+  // 保持原来的天赋选择
+  p1.talentId = app._localTalent2 || null;
+  p2.talentId = app._opponentTalentId || null;
 
   app.gameState = createGameState(p1, p2);
   app.coinFlipFirstTurn = app.coinFlipFirstTurn === 0 ? 1 : 0;
@@ -954,6 +1084,8 @@ function onRematch() {
   if (!gs) return;
   const p1 = createPlayer(gs.players[0].id, gs.players[0].name, gs.players[0].characterId);
   const p2 = createPlayer(gs.players[1].id, gs.players[1].name, gs.players[1].characterId);
+  p1.talentId = gs.players[0].talentId || null;
+  p2.talentId = gs.players[1].talentId || null;
   const firstTurn = gs.winner === 1 ? 0 : 1;
   const newState = createGameState(p1, p2);
   newState.currentTurn = firstTurn;
@@ -981,6 +1113,11 @@ function backToLobby() {
   app.opponentCharacterLocked = false;
   app.opponentName = '';
   app._localChar1 = null;
+  app._localChar2 = null;
+  app._localTalent1 = null;
+  app._localTalent2 = null;
+  app._opponentTalentLocked = false;
+  app._opponentTalentId = null;
   showScreen('lobby');
 }
 
