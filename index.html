@@ -62,12 +62,12 @@
         </button>
       </div>
 
-      <button id="btn-lobby-guide" class="lobby-btn lobby-btn--guide" style="width:100%;margin-top:4px;">
+      <button id="btn-lobby-guide" class="lobby-btn lobby-btn--guide">
         <span class="lobby-btn__icon">📖</span>
         <span class="lobby-btn__text">技能图鉴</span>
       </button>
 
-      <button id="btn-lobby-tutorial" class="lobby-btn lobby-btn--tutorial" style="width:100%;margin-top:4px;">
+      <button id="btn-lobby-tutorial" class="lobby-btn lobby-btn--tutorial">
         <span class="lobby-btn__icon">🎓</span>
         <span class="lobby-btn__text">新手教程</span>
       </button>
@@ -87,12 +87,10 @@
 
     <!-- 房主视图 -->
     <div id="p2p-host-view" class="p2p-view hidden">
-      <div class="lobby-header" style="margin-bottom:20px;">
-        <h1 class="game-title" style="font-size:1.5rem;">📡 创建房间</h1>
+      <div class="lobby-header">
+        <h1 class="game-title">📡 创建房间</h1>
       </div>
-      <p style="color:#636E72;text-align:center;margin:0 0 16px;">
-        把房间号发给朋友，对方输入即可自动连接
-      </p>
+      <p>把房间号发给朋友，对方输入即可自动连接</p>
       <div class="room-code-big-wrap">
         <span id="p2p-room-code-big" class="room-code-big">----</span>
         <div class="room-code-glow"></div>
@@ -104,21 +102,16 @@
 
     <!-- 客机视图 -->
     <div id="p2p-guest-view" class="p2p-view hidden">
-      <div class="lobby-header" style="margin-bottom:20px;">
-        <h1 class="game-title" style="font-size:1.5rem;">📡 加入房间</h1>
+      <div class="lobby-header">
+        <h1 class="game-title">📡 加入房间</h1>
       </div>
-      <p style="color:#636E72;text-align:center;margin:0 0 16px;">
-        输入房主分享的 4 位房间号
-      </p>
-      <div class="input-wrap code-input-wrap" style="max-width:200px;margin:0 auto 16px;">
+      <p>输入房主分享的 4 位房间号</p>
+      <div class="input-wrap code-input-wrap">
         <input id="input-room-code" class="input-field" type="text"
-          placeholder="房间号" maxlength="4" autocomplete="off"
-          style="text-align:center;font-size:2rem;letter-spacing:8px;font-weight:700;" required>
+          placeholder="房间号" maxlength="4" autocomplete="off" required>
         <span class="input-bar"></span>
       </div>
-      <button id="btn-join-room" class="lobby-btn lobby-btn--create" style="width:100%;margin-top:8px;">
-        加入房间
-      </button>
+      <button id="btn-join-room" class="lobby-btn lobby-btn--create">加入房间</button>
       <p id="guest-status" class="waiting-status"></p>
       <button id="btn-leave-room-guest" class="btn btn-leave">🚪 退出</button>
     </div>
@@ -153,7 +146,7 @@
     <div class="coinflip-result hidden" id="coinflip-result">
       <p class="coinflip-result-text" id="coinflip-result-text"></p>
       <p class="coinflip-turn-text" id="coinflip-turn-text"></p>
-      <button id="btn-coinflip-next" class="btn btn-primary" style="margin-top:12px;">继续 →</button>
+      <button id="btn-coinflip-next" class="btn btn-primary">继续 →</button>
     </div>
   </div>
 </div>
@@ -313,9 +306,9 @@
     <div id="rematch-popup" class="rematch-popup hidden">
     <div class="rematch-popup-bg"></div>
     <div class="rematch-popup-card">
-      <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 8px;">对手请求再来一局！</p>
-      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">是否接受？</p>
-      <div class="rematch-popup-btns" style="display:flex;gap:10px;justify-content:center;">
+      <p>对手请求再来一局！</p>
+      <p>是否接受？</p>
+      <div class="rematch-popup-btns">
         <button id="btn-rematch-accept" class="btn btn-primary">✅ 同意</button>
         <button id="btn-rematch-decline" class="btn btn-secondary">❌ 拒绝</button>
       </div>

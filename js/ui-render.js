@@ -757,11 +757,11 @@ export function showTutorial() {
       </div>
       <div class="tutorial-body" id="tutorial-body"></div>
       <div class="tutorial-footer">
-        <button class="btn btn-secondary tutorial-prev" id="tutorial-prev" style="visibility:hidden;">◀ 上一步</button>
+        <button class="btn btn-secondary tutorial-prev" id="tutorial-prev">◀ 上一步</button>
         <span class="tutorial-dots" id="tutorial-dots"></span>
         <button class="btn btn-primary tutorial-next" id="tutorial-next">下一步 ▶</button>
       </div>
-      <button class="btn btn-secondary tutorial-close-btn" style="margin-top:8px;width:100%;">跳过教程</button>
+      <button class="btn btn-secondary tutorial-close-btn">跳过教程</button>
     </div>
   `;
   document.body.appendChild(tutorialEl);
