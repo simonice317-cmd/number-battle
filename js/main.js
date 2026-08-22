@@ -198,13 +198,13 @@ function showComboEffect(combo, opponentAvatar, myAvatar) {
   const hasRestore = combo.effects.some(e => e.type === 'restore_max_hp');
 
   if (hasDamage || hasBreakShield) {
-    showSkillEffect(opponentAvatar, '-2', '#F87171', 'avatar-flash-hit');
+    showSkillEffect(opponentAvatar, '-2', '#DC2626', 'avatar-flash-hit');
   }
   if (hasHeal) {
-    setTimeout(() => showSkillEffect(myAvatar, '+1❤️', '#34D399', 'avatar-flash-heal'), 300);
+    setTimeout(() => showSkillEffect(myAvatar, '+1❤️', '#047857', 'avatar-flash-heal'), 300);
   }
   if (hasRestore) {
-    setTimeout(() => showSkillEffect(myAvatar, '✨恢复', '#FBBF24', 'avatar-flash-heal'), 300);
+    setTimeout(() => showSkillEffect(myAvatar, '✨恢复', '#B45309', 'avatar-flash-heal'), 300);
   }
 }
 
@@ -219,7 +219,7 @@ function showDragSkillEffect(gs, params, playerIdx = 0) {
   if (skill.target === 'opponent_number') {
     const oppPrefix = playerIdx === 0 ? 'oppNum' : 'myNum';
     const targetCard = dom[`${oppPrefix}${params.targetNumIdx}`];
-    if (targetCard) showSkillEffect(targetCard, '✋复制', '#8B5CF6', null);
+    if (targetCard) showSkillEffect(targetCard, '✋复制', '#4F46E5', null);
   } else {
     const targetEl = skill.target === 'opponent_body' ? dom.opponentAvatar : dom.myAvatar;
     triggerSkillEffect(skill.type, skill.value, targetEl);
@@ -228,17 +228,17 @@ function showDragSkillEffect(gs, params, playerIdx = 0) {
 
 // 技能特效映射表（模块级常量，避免每次重新创建）
 const SKILL_EFFECTS = {
-  damage:         { text: (v) => `-${v}`,   color: '#F87171', flash: 'avatar-flash-hit' },
-  shield_strike:  { text: (v) => `🛡-${v}`, color: '#F87171', flash: 'avatar-flash-hit' },
-  shield:         { text: (v) => `+${v}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
-  shield_temp:    { text: (v) => `+${v}🛡`, color: '#22D3EE', flash: 'avatar-flash-shield' },
-  heal:           { text: (v) => `+${v}❤`,  color: '#34D399', flash: 'avatar-flash-heal' },
-  buff:           { text: (v) => `⚔+${v}`,  color: '#FBBF24', flash: 'avatar-flash-buff' },
-  pierce_damage:  { text: (v) => `💀-${v}`, color: '#EF4444', flash: 'avatar-flash-pierce' },
-  steal_number:   { text: () => '✋复制',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
-  steal_resource: { text: () => '✋偷取',    color: '#8B5CF6', flash: 'avatar-flash-steal' },
-  restore_max_hp: { text: () => '✨恢复',   color: '#FBBF24', flash: 'avatar-flash-heal' },
-  break_shield:   { text: () => '💔破盾',   color: '#EF4444', flash: 'avatar-flash-hit' },
+  damage:         { text: (v) => `-${v}`,   color: '#DC2626', flash: 'avatar-flash-hit' },
+  shield_strike:  { text: (v) => `🛡-${v}`, color: '#DC2626', flash: 'avatar-flash-hit' },
+  shield:         { text: (v) => `+${v}🛡`, color: '#0284C7', flash: 'avatar-flash-shield' },
+  shield_temp:    { text: (v) => `+${v}🛡`, color: '#0284C7', flash: 'avatar-flash-shield' },
+  heal:           { text: (v) => `+${v}❤`,  color: '#047857', flash: 'avatar-flash-heal' },
+  buff:           { text: (v) => `⚔+${v}`,  color: '#D97706', flash: 'avatar-flash-buff' },
+  pierce_damage:  { text: (v) => `💀-${v}`, color: '#B91C1C', flash: 'avatar-flash-pierce' },
+  steal_number:   { text: () => '✋复制',    color: '#4F46E5', flash: 'avatar-flash-steal' },
+  steal_resource: { text: () => '✋偷取',    color: '#4F46E5', flash: 'avatar-flash-steal' },
+  restore_max_hp: { text: () => '✨恢复',   color: '#D97706', flash: 'avatar-flash-heal' },
+  break_shield:   { text: () => '💔破盾',   color: '#B91C1C', flash: 'avatar-flash-hit' },
 };
 
 // ============================================================
@@ -967,14 +967,14 @@ function showSwitchOverlay(playerName, onConfirm) {
   const overlay = document.createElement('div');
   overlay.style.cssText = `
     position:fixed;inset:0;z-index:500;
-    background:rgba(0,0,0,0.65);
+    background:rgba(40,35,20,0.4);
     display:flex;align-items:center;justify-content:center;
-    backdrop-filter:blur(6px);
+    backdrop-filter:blur(4px);
   `;
   overlay.innerHTML = `
-    <div style="background:#FFF;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.15);">
-      <p style="font-size:15px;color:#636E72;margin:0 0 8px;">请将设备交给</p>
-      <p style="font-size:26px;font-weight:800;color:#2D3436;margin:0 0 24px;">${playerName}</p>
+    <div style="background:#FCFBF8;border:1px solid #D6D1C5;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 2px 4px rgba(40,35,20,0.05),0 16px 40px rgba(40,35,20,0.12);">
+      <p style="font-size:15px;color:#6F6B63;margin:0 0 8px;">请将设备交给</p>
+      <p style="font-family:Georgia,'Songti SC','SimSun',serif;font-size:26px;font-weight:700;color:#1C1B1A;margin:0 0 24px;">${playerName}</p>
       <button class="btn btn-primary" style="width:100%;">👆 准备好了</button>
     </div>
   `;

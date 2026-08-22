@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-- **技术栈**：原生 JS (ES Modules) + CSS 深色琉璃主题 + PeerJS WebRTC
+- **技术栈**：原生 JS (ES Modules) + CSS 纸张博弈浅色印刷主题 + PeerJS WebRTC
 - **部署**：GitHub Pages → https://simonice317-cmd.github.io/number-battle/
 - **运行**：双击 `index.html` 或 `npx serve .`
 - **无构建步骤**：零依赖框架，所有库本地打包
@@ -14,7 +14,7 @@
 ```
 youxi/
 ├── index.html          # 6 个全屏页面：大厅/等待/猜硬币/选角/对局/结算
-├── css/style.css       # 深色琉璃主题（Dark Vitreous），CSS 自定义属性驱动
+├── css/style.css       # 纸张博弈浅色印刷主题（Paper Minimal），CSS 自定义属性驱动
 ├── js/
 │   ├── game-core.js    # 🔒 纯逻辑层：角色注册表、加法、技能、组合技、重伤、胜负判定
 │   ├── main.js         # 应用入口：状态管理、P2P 消息路由、本地/联机流程控制

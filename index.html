@@ -62,6 +62,8 @@
         </button>
       </div>
 
+    </div>
+
       <button id="btn-lobby-guide" class="lobby-btn lobby-btn--guide">
         <span class="lobby-btn__icon">📖</span>
         <span class="lobby-btn__text">技能图鉴</span>
@@ -72,7 +74,6 @@
         <span class="lobby-btn__text">新手教程</span>
       </button>
 
-    </div>
   </div>
 
 
@@ -203,6 +204,9 @@
     <span id="ping-display" class="top-bar-ping hidden">🟢 0ms</span>
   </div>
 
+  <!-- 对战板 -->
+  <div class="game-board">
+
   <!-- 对手区域 -->
   <div class="opponent-area">
     <div class="player-info opponent-info">
@@ -214,7 +218,6 @@
       <div class="hp-section">
         <div class="hp-bar-wrap">
           <div id="opponent-hp-bar" class="hp-bar opponent-hp-bar" style="width:100%"></div>
-          
         </div>
         <span id="opponent-hp-text" class="hp-text">10/10</span>
         <span id="opponent-shield" class="shield-badge hidden">🛡️ 0</span>
@@ -238,9 +241,9 @@
     <div id="turn-label" class="turn-label">你的回合</div>
     <div id="action-counter" class="action-counter">本回合操作: 0/1</div>
     <div class="laser-divider"></div>
-		    <button id="btn-talent" class="btn btn-talent hidden">🌟 天赋</button>
-		    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
-		<button id="btn-skills" class="btn btn-skills hidden">📋 技能</button>
+    <button id="btn-talent" class="btn btn-talent hidden">🌟 天赋</button>
+    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
+    <button id="btn-skills" class="btn btn-skills hidden">📋 技能</button>
     <button id="btn-end-turn" class="btn btn-end-turn">跳过回合 →</button>
     <button id="btn-surrender" class="btn btn-surrender">🏳️ 投降</button>
   </div>
@@ -267,11 +270,12 @@
     <div class="hp-section">
       <div class="hp-bar-wrap">
         <div id="my-hp-bar" class="hp-bar my-hp-bar" style="width:100%"></div>
-        
       </div>
       <span id="my-hp-text" class="hp-text">10/10</span>
       <span id="my-shield" class="shield-badge hidden">🛡️ 0</span>
     </div>
+  </div>
+
   </div>
 
   <!-- SVG 拖拽箭头层 -->

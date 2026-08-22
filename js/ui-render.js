@@ -136,7 +136,7 @@ function renderPlayer(player, prefix) {
     const maxHpStr = Number.isInteger(player.maxHp) ? player.maxHp.toString() : player.maxHp.toFixed(1);
     if (player.baseMaxHp && player.maxHp < player.baseMaxHp) {
       hpText.textContent = `${hpStr}/${maxHpStr}（原${player.baseMaxHp}）`;
-      hpText.style.color = '#F87171';
+      hpText.style.color = '#DC2626';
     } else {
       hpText.textContent = `${hpStr}/${maxHpStr}`;
       hpText.style.color = '';
@@ -292,7 +292,7 @@ function spawnParticles() {
   canvas.height = window.innerHeight;
 
   const particles = [];
-  const colors = ['#FBBF24', '#C4B5FD', '#8B5CF6', '#FFD700', '#A78BFA', '#F59E0B'];
+  const colors = ['#4F46E5', '#D97706', '#047857', '#0EA5E9', '#B45309', '#DC2626'];
   for (let i = 0; i < 60; i++) {
     particles.push({
       x: Math.random() * canvas.width,
@@ -688,7 +688,7 @@ export function showTalentEffect(talentId, myAvatarEl) {
   if (!talent) return;
 
   if (myAvatarEl) {
-    const color = talentId === 'hp_lock' ? '#FBBF24' : '#34D399';
+    const color = talentId === 'hp_lock' ? '#B45309' : '#047857';
     const text = talentId === 'hp_lock' ? '🛡️锁血' : talent.icon;
     showSkillEffect(myAvatarEl, text, color, 'avatar-flash-heal');
   }
@@ -715,19 +715,19 @@ const TUTORIAL_PAGES = [
     html: `<p><strong>你的回合可以：</strong></p>
 <ol style="text-align:left;line-height:1.8;">
   <li>拖拽数字到<strong>对手身上</strong> → 造成等值伤害</li>
-  <li>拖拽数字到<strong>对手数字上</strong> → 加法合成<br><small style="color:#888;">（数字相加，每回合限 1 次）</small></li>
+  <li>拖拽数字到<strong>对手数字上</strong> → 加法合成<br><small style="color:var(--text-tertiary);">（数字相加，每回合限 1 次）</small></li>
   <li>拖拽数字到<strong>自己身上</strong> → 触发角色技能</li>
   <li>点击 <strong>💥 组合技</strong> 按钮 → 发动强力组合技</li>
 </ol>
-<p style="color:#888;">每回合最多 <strong>2 次操作</strong></p>`,
+<p style="color:var(--text-tertiary);">每回合最多 <strong>2 次操作</strong></p>`,
   },
   {
     emoji: '🛡️',
     title: '护盾 & 重伤',
-    html: `<p><strong>🛡️ 护盾</strong>：临时吸收伤害，<span style="color:#F87171;">回合开始时过期清零</span></p>
-<p><strong>💔 重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:#F87171;">永久减少</span></p>
-<p style="font-size:13px;color:#888;">减少量 = 伤害值 × 50%（0.5步进）<br>例：受 1 点伤害 → 上限 -0.5，受 3 点伤害 → 上限 -1.5</p>
-<p style="font-size:13px;color:#888;">治疗技能<strong>无法</strong>恢复已损失的上限<br>只有圣骑士的组合技「圣光复苏」可以恢复</p>`,
+    html: `<p><strong>🛡️ 护盾</strong>：临时吸收伤害，<span style="color:var(--danger);">回合开始时过期清零</span></p>
+<p><strong>💔 重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:var(--danger);">永久减少</span></p>
+<p style="font-size:13px;color:var(--text-tertiary);">减少量 = 伤害值 × 50%（0.5步进）<br>例：受 1 点伤害 → 上限 -0.5，受 3 点伤害 → 上限 -1.5</p>
+<p style="font-size:13px;color:var(--text-tertiary);">治疗技能<strong>无法</strong>恢复已损失的上限<br>只有圣骑士的组合技「圣光复苏」可以恢复</p>`,
   },
   {
     emoji: '⚔️',
@@ -735,7 +735,7 @@ const TUTORIAL_PAGES = [
     html: `<p>四个角色各有<strong>独特技能</strong>。</p>
 <p>当场上<strong>两个数字</strong>匹配角色的组合技要求时，可发动强力<strong>组合技</strong>。</p>
 <p>点击大厅 <strong>📖 技能图鉴</strong> 查看所有角色详情。</p>
-<p style="color:#FBBF24;">⚡ 善用组合技是逆转战局的关键！</p>`,
+<p style="color:var(--warning);font-weight:600;">⚡ 善用组合技是逆转战局的关键！</p>`,
   },
 ];
 
