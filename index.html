@@ -23,56 +23,62 @@
 
 
   <div class="lobby-container">
-    <!-- 标题区：ASCII 霓虹 Logo -->
+    <!-- 标题区：琥珀几何徽记 + 双语锁标 -->
     <div class="lobby-header">
       <div class="logo-mark">
         <svg viewBox="0 0 48 48" fill="none"><rect x="4" y="4" width="17" height="17" rx="5" fill="currentColor" opacity=".9"/><rect x="27" y="4" width="17" height="17" rx="5" fill="currentColor" opacity=".6"/><rect x="4" y="27" width="17" height="17" rx="5" fill="currentColor" opacity=".6"/><rect x="27" y="27" width="17" height="17" rx="5" fill="currentColor" opacity=".3"/></svg>
       </div>
+      <span class="logo-latin">NUMBER BATTLE</span>
       <h1 class="game-title">数字对战</h1>
       <p class="game-subtitle">拖拽 · 策略 · 联机对决</p>
     </div>
 
-    <!-- 玻璃主卡片 -->
+    <!-- 主卡片：对战入口 + 署名 -->
     <div class="lobby-card">
-      <!-- 昵称输入 -->
-      <div class="input-wrap">
-        <input id="input-nickname" class="input-field" type="text" placeholder="你的昵称" maxlength="8" autocomplete="off" required>
-        <span class="input-bar"></span>
-      </div>
-
-      <!-- 按钮网格 -->
+      <!-- 对战入口 — 竖排行 -->
       <div class="lobby-buttons">
         <button id="btn-local" class="lobby-btn lobby-btn--local">
           <span class="lobby-btn__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </span>
           <span class="lobby-btn__text">本地对战</span>
+          <span class="lobby-btn__hint">同屏轮流</span>
+          <span class="lobby-btn__arrow">›</span>
         </button>
         <button id="btn-create" class="lobby-btn lobby-btn--create">
           <span class="lobby-btn__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 L12 22 M2 12 L22 12"/></svg>
           </span>
           <span class="lobby-btn__text">创建房间</span>
+          <span class="lobby-btn__hint">发码邀友</span>
+          <span class="lobby-btn__arrow">›</span>
         </button>
         <button id="btn-join-show" class="lobby-btn lobby-btn--join">
           <span class="lobby-btn__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4 M10 17l5-5-5-5 M14 12H3"/></svg>
           </span>
           <span class="lobby-btn__text">加入房间</span>
+          <span class="lobby-btn__hint">输码入局</span>
+          <span class="lobby-btn__arrow">›</span>
         </button>
       </div>
 
+      <!-- 署名输入 -->
+      <div class="input-wrap">
+        <input id="input-nickname" class="input-field" type="text" placeholder="你的昵称" maxlength="8" autocomplete="off" required>
+        <span class="input-bar"></span>
+      </div>
     </div>
 
+    <!-- 底部工具链接 -->
+    <div class="lobby-tools">
       <button id="btn-lobby-guide" class="lobby-btn lobby-btn--guide">
-        <span class="lobby-btn__icon">📖</span>
         <span class="lobby-btn__text">技能图鉴</span>
       </button>
-
       <button id="btn-lobby-tutorial" class="lobby-btn lobby-btn--tutorial">
-        <span class="lobby-btn__icon">🎓</span>
         <span class="lobby-btn__text">新手教程</span>
       </button>
+    </div>
 
   </div>
 
@@ -89,7 +95,7 @@
     <!-- 房主视图 -->
     <div id="p2p-host-view" class="p2p-view hidden">
       <div class="lobby-header">
-        <h1 class="game-title">📡 创建房间</h1>
+        <h1 class="game-title">创建房间</h1>
       </div>
       <p>把房间号发给朋友，对方输入即可自动连接</p>
       <div class="room-code-big-wrap">
@@ -98,13 +104,13 @@
       </div>
       <p id="host-status" class="waiting-status">正在连接信令服务…</p>
       <div id="host-waiting-dots" class="waiting-dots hidden"><span>.</span><span>.</span><span>.</span></div>
-      <button id="btn-leave-room" class="btn btn-leave">🚪 退出</button>
+      <button id="btn-leave-room" class="btn btn-leave">退出</button>
     </div>
 
     <!-- 客机视图 -->
     <div id="p2p-guest-view" class="p2p-view hidden">
       <div class="lobby-header">
-        <h1 class="game-title">📡 加入房间</h1>
+        <h1 class="game-title">加入房间</h1>
       </div>
       <p>输入房主分享的 4 位房间号</p>
       <div class="input-wrap code-input-wrap">
@@ -114,7 +120,7 @@
       </div>
       <button id="btn-join-room" class="lobby-btn lobby-btn--create">加入房间</button>
       <p id="guest-status" class="waiting-status"></p>
-      <button id="btn-leave-room-guest" class="btn btn-leave">🚪 退出</button>
+      <button id="btn-leave-room-guest" class="btn btn-leave">退出</button>
     </div>
 
   </div>
@@ -125,7 +131,7 @@
      ============================================================ -->
 <div id="screen-coinflip" class="screen">
   <div class="coinflip-container">
-    <h2 class="coinflip-title">🪙 猜硬币</h2>
+    <h2 class="coinflip-title">猜硬币</h2>
     <p class="coinflip-subtitle" id="coinflip-subtitle">选择正面或反面，决定谁先手</p>
 
     <!-- 硬币动画区 -->
@@ -136,8 +142,8 @@
 
     <!-- 猜测按钮（猜测方可见） -->
     <div class="coinflip-buttons" id="coinflip-buttons">
-      <button class="coinflip-btn coinflip-btn-heads" data-guess="heads">🪙 正面</button>
-      <button class="coinflip-btn coinflip-btn-tails" data-guess="tails">🔄 反面</button>
+      <button class="coinflip-btn coinflip-btn-heads" data-guess="heads">正面</button>
+      <button class="coinflip-btn coinflip-btn-tails" data-guess="tails">反面</button>
     </div>
 
     <!-- 等待提示（抛硬币方可见） -->
@@ -176,7 +182,7 @@
      ============================================================ -->
 <div id="screen-talentselect" class="screen">
   <div class="talentselect-container">
-    <h2 class="talentselect-title">🌟 选择天赋</h2>
+    <h2 class="talentselect-title">选择天赋</h2>
     <p class="talentselect-subtitle" id="talentselect-subtitle">选择一项天赋，本局可使用一次（不占行动次数）</p>
     <div class="talent-cards" id="talent-cards"></div>
     <div class="talentselect-status">
@@ -199,9 +205,9 @@
 
   <!-- 顶栏 -->
   <div class="top-bar">
-    <span class="top-bar-title">🔢 数字对战</span>
+    <span class="top-bar-title">数字对战</span>
     <span id="room-code-display" class="room-code-badge">房间: ----</span>
-    <span id="ping-display" class="top-bar-ping hidden">🟢 0ms</span>
+    <span id="ping-display" class="top-bar-ping hidden">● 0ms</span>
   </div>
 
   <!-- 对战板 -->
@@ -212,7 +218,7 @@
     <div class="player-info opponent-info">
       <div id="opponent-avatar-zone" class="avatar-zone opponent-avatar-zone"
            data-drop-target="opponent_body">
-        <div id="opponent-avatar" class="avatar">🧙</div>
+        <div id="opponent-avatar" class="avatar">▣</div>
         <div id="opponent-name" class="player-name">对手</div>
       </div>
       <div class="hp-section">
@@ -220,7 +226,7 @@
           <div id="opponent-hp-bar" class="hp-bar opponent-hp-bar" style="width:100%"></div>
         </div>
         <span id="opponent-hp-text" class="hp-text">10/10</span>
-        <span id="opponent-shield" class="shield-badge hidden">🛡️ 0</span>
+        <span id="opponent-shield" class="shield-badge hidden">盾 0</span>
       </div>
     </div>
 
@@ -237,26 +243,26 @@
 
   <!-- 中间信息区 -->
   <div class="center-info">
-    <div id="timer-display" class="timer-display">⏱ 30s</div>
+    <div id="timer-display" class="timer-display">30s</div>
     <div id="turn-label" class="turn-label">你的回合</div>
     <div id="action-counter" class="action-counter">本回合操作: 0/1</div>
     <div class="laser-divider"></div>
-    <button id="btn-talent" class="btn btn-talent hidden">🌟 天赋</button>
-    <button id="btn-combo" class="btn btn-combo hidden">💥 组合技</button>
-    <button id="btn-skills" class="btn btn-skills hidden">📋 技能</button>
+    <button id="btn-talent" class="btn btn-talent hidden">天赋</button>
+    <button id="btn-combo" class="btn btn-combo hidden">组合技</button>
+    <button id="btn-skills" class="btn btn-skills hidden">技能</button>
     <button id="btn-end-turn" class="btn btn-end-turn">跳过回合 →</button>
-    <button id="btn-surrender" class="btn btn-surrender">🏳️ 投降</button>
+    <button id="btn-surrender" class="btn btn-surrender">投降</button>
   </div>
 
   <!-- 我方数字 -->
   <div class="numbers-row my-numbers">
     <div id="my-num-0" class="num-card num-card-mine" data-draggable data-idx="0">
       <span class="num-value">1</span>
-      <span class="skill-dot hidden">✨</span>
+      <span class="skill-dot hidden">◆</span>
     </div>
     <div id="my-num-1" class="num-card num-card-mine" data-draggable data-idx="1">
       <span class="num-value">1</span>
-      <span class="skill-dot hidden">✨</span>
+      <span class="skill-dot hidden">◆</span>
     </div>
   </div>
 
@@ -264,7 +270,7 @@
   <div class="player-info my-info">
     <div id="my-avatar-zone" class="avatar-zone my-avatar-zone"
          data-drop-target="self_body">
-      <div id="my-avatar" class="avatar">🧙</div>
+      <div id="my-avatar" class="avatar">▣</div>
       <div id="my-name" class="player-name">我</div>
     </div>
     <div class="hp-section">
@@ -272,7 +278,7 @@
         <div id="my-hp-bar" class="hp-bar my-hp-bar" style="width:100%"></div>
       </div>
       <span id="my-hp-text" class="hp-text">10/10</span>
-      <span id="my-shield" class="shield-badge hidden">🛡️ 0</span>
+      <span id="my-shield" class="shield-badge hidden">盾 0</span>
     </div>
   </div>
 
@@ -304,7 +310,7 @@
 <div id="screen-result" class="screen">
   <canvas id="particles-canvas"></canvas>
   <div class="result-container">
-    <div id="result-emoji" class="result-emoji">🎉</div>
+    <div id="result-emoji" class="result-emoji">胜</div>
     <h2 id="result-title" class="result-title">你赢了！</h2>
     <p id="result-detail" class="result-detail"></p>
     <div id="rematch-popup" class="rematch-popup hidden">
@@ -313,14 +319,14 @@
       <p>对手请求再来一局！</p>
       <p>是否接受？</p>
       <div class="rematch-popup-btns">
-        <button id="btn-rematch-accept" class="btn btn-primary">✅ 同意</button>
-        <button id="btn-rematch-decline" class="btn btn-secondary">❌ 拒绝</button>
+        <button id="btn-rematch-accept" class="btn btn-primary">同意</button>
+        <button id="btn-rematch-decline" class="btn btn-secondary">拒绝</button>
       </div>
     </div>
   </div>
   <div class="result-buttons">
-      <button id="btn-rematch" class="btn btn-primary">🔄 再来一局</button>
-      <button id="btn-lobby" class="btn btn-secondary">🏠 返回大厅</button>
+      <button id="btn-rematch" class="btn btn-primary">再来一局</button>
+      <button id="btn-lobby" class="btn btn-secondary">返回大厅</button>
     </div>
   </div>
 </div>

@@ -14,8 +14,8 @@ export const CHARACTERS = {
     id: 'basic',
     name: '基础使者',
     maxHp: 4,
-    avatar: '🧙',
-    color: '#6C5CE7',          // 角色主题色
+    avatar: '基',
+    color: '#D59A3C',          // 角色主题色
     skills: {
       // 数字 → { type, target, value, desc }
       // target: 'opponent_number' → 加法（这是默认操作，无需在 skills 中定义）
@@ -31,8 +31,8 @@ export const CHARACTERS = {
     id: 'paladin',
     name: '圣骑士',
     maxHp: 5,
-    avatar: '🛡️',
-    color: '#E17055',
+    avatar: '圣',
+    color: '#E0655A',
     skills: {
       4: { type: 'damage',        target: 'opponent_body', value: 1, desc: '冲拳：造成 1 点伤害' },
       5: { type: 'shield_strike', target: 'opponent_body', value: 1, desc: '盾击：自身+1护盾并造成1点伤害' },
@@ -53,8 +53,8 @@ export const CHARACTERS = {
     id: 'archer',
     name: '弓箭手',
     maxHp: 3,
-    avatar: '🏹',
-    color: '#10B981',
+    avatar: '弓',
+    color: '#7FB069',
     skills: {
       3: { type: 'damage', target: 'opponent_body', value: 1, desc: '快速射击：造成 1 点伤害' },
       4: { type: 'damage', target: 'opponent_body', value: 1, desc: '速射：造成 1 点伤害' },
@@ -76,8 +76,8 @@ export const CHARACTERS = {
     id: 'thief',
     name: '盗贼',
     maxHp: 2,
-    avatar: '🗡️',
-    color: '#8B5CF6',
+    avatar: '盗',
+    color: '#6FA8C9',
     skills: {
       4: { type: 'damage',         target: 'opponent_body',   value: 1,   desc: '刺击：造成 1 点伤害' },
       6: { type: 'steal_resource', target: 'opponent_body',   value: 1,   desc: '妙手：偷取对手1点护盾或血量（优先护盾）' },
@@ -105,21 +105,21 @@ export const TALENTS = {
   heal_2: {
     id: 'heal_2',
     name: '生命恢复',
-    icon: '💚',
+    icon: '疗',
     desc: '恢复 2 点 HP（不超过当前上限）',
     effect: 'heal_2',
   },
   restore_max: {
     id: 'restore_max',
     name: '上限修复',
-    icon: '💪',
+    icon: '复',
     desc: '恢复 2 点生命上限（不超过初始上限）',
     effect: 'restore_max',
   },
   hp_lock: {
     id: 'hp_lock',
     name: '绝地求生',
-    icon: '🛡️',
+    icon: '锁',
     desc: '一回合内 HP 和上限不会降到 1 以下',
     effect: 'hp_lock',
   },

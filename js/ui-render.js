@@ -123,7 +123,7 @@ function renderPlayer(player, prefix) {
   // 头像 & 名字
   const avatarEl = dom[`${prefix}Avatar`];
   const nameEl   = dom[`${prefix}Name`];
-  if (avatarEl) avatarEl.textContent = char?.avatar || '🧙';
+  if (avatarEl) avatarEl.textContent = char?.avatar || '▣';
   if (nameEl)   nameEl.textContent   = player.name;
 
   // HP
@@ -136,7 +136,7 @@ function renderPlayer(player, prefix) {
     const maxHpStr = Number.isInteger(player.maxHp) ? player.maxHp.toString() : player.maxHp.toFixed(1);
     if (player.baseMaxHp && player.maxHp < player.baseMaxHp) {
       hpText.textContent = `${hpStr}/${maxHpStr}（原${player.baseMaxHp}）`;
-      hpText.style.color = '#DC2626';
+      hpText.style.color = '#E0655A';
     } else {
       hpText.textContent = `${hpStr}/${maxHpStr}`;
       hpText.style.color = '';
@@ -148,7 +148,7 @@ function renderPlayer(player, prefix) {
   if (shieldEl) {
     if (player.shield > 0) {
       shieldEl.classList.remove('hidden');
-      shieldEl.textContent = `🛡️ ${player.shield}`;
+      shieldEl.textContent = `盾 ${player.shield}`;
     } else {
       shieldEl.classList.add('hidden');
     }
@@ -209,11 +209,11 @@ export function renderGameState(state, myPlayerIndex) {
     if (isMyTurn && state.phase === 'playing' && me.talentId && !me.talentUsed) {
       dom.btnTalent.classList.remove('hidden');
       const talent = getTalentInfo(me.talentId);
-      dom.btnTalent.textContent = `🌟 ${talent ? talent.name : '天赋'}`;
+      dom.btnTalent.textContent = `◈ ${talent ? talent.name : '天赋'}`;
       dom.btnTalent.classList.remove('used');
     } else if (me.talentUsed) {
       dom.btnTalent.classList.remove('hidden');
-      dom.btnTalent.textContent = '🌟 已使用';
+      dom.btnTalent.textContent = '已使用';
       dom.btnTalent.classList.add('used');
     } else {
       dom.btnTalent.classList.add('hidden');
@@ -226,7 +226,7 @@ export function renderGameState(state, myPlayerIndex) {
       const combo = getComboAvailable(me);
       if (combo) {
         dom.btnCombo.classList.remove('hidden');
-        dom.btnCombo.textContent = `💥 ${combo.name}`;
+        dom.btnCombo.textContent = `◈ ${combo.name}`;
       } else {
         dom.btnCombo.classList.add('hidden');
       }
@@ -238,7 +238,7 @@ export function renderGameState(state, myPlayerIndex) {
 
 /** 更新计时器显示 */
 export function updateTimer(secondsLeft) {
-  dom.timerDisplay.textContent = `⏱ ${secondsLeft}s`;
+  dom.timerDisplay.textContent = `${secondsLeft}s`;
   if (secondsLeft <= 10) {
     dom.timerDisplay.classList.add('warning');
   } else {
@@ -265,13 +265,15 @@ export function showToast(msg, duration = 2000) {
 /** 显示结算 */
 export function showResult(won, reason) {
   if (won) {
-    dom.resultEmoji.textContent = '🎉';
+    dom.resultEmoji.textContent = '胜';
+    dom.resultEmoji.style.color = 'var(--success)';
     dom.resultTitle.textContent = '你赢了！';
     dom.resultTitle.className = 'result-title win';
     dom.resultDetail.textContent = reason || '对手血量归零，你获得了胜利！';
     spawnParticles(); // 胜利粒子雨
   } else {
-    dom.resultEmoji.textContent = '💔';
+    dom.resultEmoji.textContent = '负';
+    dom.resultEmoji.style.color = 'var(--danger)';
     dom.resultTitle.textContent = '你输了';
     dom.resultTitle.className = 'result-title lose';
     dom.resultDetail.textContent = reason || '你的血量归零，对手获得了胜利。';
@@ -292,7 +294,7 @@ function spawnParticles() {
   canvas.height = window.innerHeight;
 
   const particles = [];
-  const colors = ['#4F46E5', '#D97706', '#047857', '#0EA5E9', '#B45309', '#DC2626'];
+  const colors = ['#D59A3C', '#E0655A', '#7FB069', '#6FA8C9', '#D98A2B', '#C94F45'];
   for (let i = 0; i < 60; i++) {
     particles.push({
       x: Math.random() * canvas.width,
@@ -347,8 +349,9 @@ export function updatePing(ms) {
   const el = document.getElementById('ping-display');
   if (!el) return;
   el.classList.remove('hidden');
-  const color = ms < 80 ? '🟢' : ms < 200 ? '🟡' : '🔴';
-  el.textContent = `${color} ${ms}ms`;
+  const color = ms < 80 ? '#7FB069' : ms < 200 ? '#D59A3C' : '#E0655A';
+  el.textContent = `● ${ms}ms`;
+  el.style.color = color;
 }
 
 // ============================================================
@@ -378,8 +381,8 @@ export function showCoinFlipResult(result, guestGuess, correct, firstName, onDon
 
   const faceName = result === 'heads' ? '正面' : '反面';
   dom.coinflipResultText.textContent = correct
-    ? `✅ ${guestGuess === 'heads' ? '正面' : '反面'}！猜对了！`
-    : `❌ 是${faceName}，猜错了`;
+    ? `${guestGuess === 'heads' ? '正面' : '反面'}，猜对了！`
+    : `是${faceName}，猜错了`;
   dom.coinflipTurnText.textContent = `${firstName} 先手`;
   if (dom.btnCoinflipNext) dom.btnCoinflipNext.classList.remove('hidden');
 
@@ -408,7 +411,7 @@ function buildSkillAndComboHtml(char) {
   });
   if (char.combo) {
     const comboNums = char.combo.required.join(' + ');
-    html += `<div class="skill-combo-info">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc}</div>`;
+    html += `<div class="skill-combo-info">◈ <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc}</div>`;
   }
   return html;
 }
@@ -425,7 +428,7 @@ function buildSkillAndComboHtmlWithStatus(char, player) {
     const locked = player && player.comboUsed;
     const statusClass = locked ? 'combo-locked' : 'combo-ready';
     const statusText = locked ? '（已锁定，需加法解锁）' : '（可用）';
-    html += `<div class="skill-combo-info ${statusClass}">💥 <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc} ${statusText}</div>`;
+    html += `<div class="skill-combo-info ${statusClass}">◈ <span class="skill-num combo-num">${comboNums}</span>${char.combo.desc} ${statusText}</div>`;
   }
   return html;
 }
@@ -443,7 +446,7 @@ export function renderCharSelect() {
     card.innerHTML = `
       <div class="char-avatar">${char.avatar}</div>
       <div class="char-name">${char.name}</div>
-      <div class="char-hp">❤️ HP: ${char.maxHp}</div>
+      <div class="char-hp">HP: ${char.maxHp}</div>
       <div class="char-skills">${buildSkillAndComboHtml(char)}</div>
     `;
 
@@ -550,14 +553,14 @@ export function showLobbyGuide() {
   guidePopupEl.innerHTML = `
     <div class="skill-popup-bg"></div>
     <div class="guide-popup-card">
-      <h3>📖 技能图鉴</h3>
+      <h3>技能图鉴</h3>
       <div id="lobby-guide-list">
         ${Object.values(CHARACTERS).map(char => `
           <div class="lobby-guide-char">
             <div class="lobby-guide-header">
               <span class="guide-avatar">${char.avatar}</span>
               <span class="guide-name">${char.name}</span>
-              <span class="guide-hp">❤️ HP: ${char.maxHp}</span>
+              <span class="guide-hp">HP: ${char.maxHp}</span>
             </div>
             <div class="char-skills">${buildSkillAndComboHtml(char)}</div>
           </div>
@@ -587,7 +590,7 @@ export function setCharLocked(charId) {
     card.style.pointerEvents = 'none';
   });
   if (dom.btnConfirmChar) {
-    dom.btnConfirmChar.textContent = '已锁定 ✓';
+    dom.btnConfirmChar.textContent = '已锁定';
     dom.btnConfirmChar.disabled = true;
   }
 }
@@ -638,7 +641,7 @@ export function setTalentLocked(talentId) {
     card.style.pointerEvents = 'none';
   });
   if (dom.btnConfirmTalent) {
-    dom.btnConfirmTalent.textContent = '已锁定 ✓';
+    dom.btnConfirmTalent.textContent = '已锁定';
     dom.btnConfirmTalent.disabled = true;
   }
 }
@@ -688,8 +691,8 @@ export function showTalentEffect(talentId, myAvatarEl) {
   if (!talent) return;
 
   if (myAvatarEl) {
-    const color = talentId === 'hp_lock' ? '#B45309' : '#047857';
-    const text = talentId === 'hp_lock' ? '🛡️锁血' : talent.icon;
+    const color = talentId === 'hp_lock' ? '#D59A3C' : '#7FB069';
+    const text = talentId === 'hp_lock' ? '锁血' : talent.icon;
     showSkillEffect(myAvatarEl, text, color, 'avatar-flash-heal');
   }
 }
@@ -703,39 +706,39 @@ let tutorialPage = 0;
 
 const TUTORIAL_PAGES = [
   {
-    emoji: '👋',
+    emoji: '手',
     title: '欢迎来到数字对战',
     html: `<p>这是一款<strong>回合制策略对战</strong>游戏。</p>
 <p>你和对手各自拥有<strong>两个数字</strong>和一个<strong>角色技能组</strong>。</p>
 <p>通过拖拽数字发动技能或攻击对手，将对方 <strong>HP 降至 0</strong> 即可获胜。</p>`,
   },
   {
-    emoji: '🎮',
+    emoji: '作',
     title: '基本操作',
     html: `<p><strong>你的回合可以：</strong></p>
 <ol style="text-align:left;line-height:1.8;">
   <li>拖拽数字到<strong>对手身上</strong> → 造成等值伤害</li>
   <li>拖拽数字到<strong>对手数字上</strong> → 加法合成<br><small style="color:var(--text-tertiary);">（数字相加，每回合限 1 次）</small></li>
   <li>拖拽数字到<strong>自己身上</strong> → 触发角色技能</li>
-  <li>点击 <strong>💥 组合技</strong> 按钮 → 发动强力组合技</li>
+  <li>点击 <strong>◈ 组合技</strong> 按钮 → 发动强力组合技</li>
 </ol>
 <p style="color:var(--text-tertiary);">每回合最多 <strong>2 次操作</strong></p>`,
   },
   {
-    emoji: '🛡️',
+    emoji: '盾',
     title: '护盾 & 重伤',
-    html: `<p><strong>🛡️ 护盾</strong>：临时吸收伤害，<span style="color:var(--danger);">回合开始时过期清零</span></p>
-<p><strong>💔 重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:var(--danger);">永久减少</span></p>
+    html: `<p><strong>护盾</strong>：临时吸收伤害，<span style="color:var(--danger);">回合开始时过期清零</span></p>
+<p><strong>重伤</strong>：HP 受到实际伤害时，最大生命上限<span style="color:var(--danger);">永久减少</span></p>
 <p style="font-size:13px;color:var(--text-tertiary);">减少量 = 伤害值 × 50%（0.5步进）<br>例：受 1 点伤害 → 上限 -0.5，受 3 点伤害 → 上限 -1.5</p>
 <p style="font-size:13px;color:var(--text-tertiary);">治疗技能<strong>无法</strong>恢复已损失的上限<br>只有圣骑士的组合技「圣光复苏」可以恢复</p>`,
   },
   {
-    emoji: '⚔️',
+    emoji: '技',
     title: '角色 & 组合技',
     html: `<p>四个角色各有<strong>独特技能</strong>。</p>
 <p>当场上<strong>两个数字</strong>匹配角色的组合技要求时，可发动强力<strong>组合技</strong>。</p>
-<p>点击大厅 <strong>📖 技能图鉴</strong> 查看所有角色详情。</p>
-<p style="color:var(--warning);font-weight:600;">⚡ 善用组合技是逆转战局的关键！</p>`,
+<p>点击大厅 <strong>技能图鉴</strong> 查看所有角色详情。</p>
+<p style="color:var(--warning);font-weight:600;">善用组合技是逆转战局的关键！</p>`,
   },
 ];
 
@@ -780,7 +783,7 @@ export function showTutorial() {
 
     prevBtn.style.visibility = tutorialPage === 0 ? 'hidden' : 'visible';
     if (tutorialPage === TUTORIAL_PAGES.length - 1) {
-      nextBtn.textContent = '✓ 开始游戏';
+      nextBtn.textContent = '开始游戏';
       nextBtn.classList.add('tutorial-done');
     } else {
       nextBtn.textContent = '下一步 ▶';
