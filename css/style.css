@@ -562,6 +562,26 @@ body::after {
 }
 .opponent-hp-bar { background: var(--danger); }
 .my-hp-bar       { background: var(--accent); }
+
+/* HP 残影条 — 伤害尾迹：掉血后在旧位置留一道幽灵色带，追上新值后淡出 */
+.hp-trail {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  opacity: 0;
+  pointer-events: none;
+}
+#my-hp-trail { background: var(--accent); }
+
+/* 低血量警示 — HP ≤ 25% 时血条缓慢脉动（reduced-motion 下降级为静态变色） */
+.hp-bar.low {
+  background: var(--danger);
+  animation: hp-low-pulse 1.6s var(--ease-in-out) infinite alternate;
+}
+@keyframes hp-low-pulse {
+  from { opacity: 0.85; }
+  to   { opacity: 1; }
+}
 .hp-text { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .shield-badge {
   font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full);
@@ -624,6 +644,17 @@ body::after {
   width: 80%; max-width: 300px; margin: 0 auto; position: relative;
   height: 1px; background: var(--line);
 }
+/* 回合切换 — 中线琥珀扫过 */
+.laser-divider::after {
+  content: ''; position: absolute; inset: 0;
+  background: var(--accent); opacity: 0.7;
+  transform: scaleX(0); transform-origin: left center;
+}
+.laser-divider.sweep::after { animation: divider-sweep 260ms var(--ease-out); }
+@keyframes divider-sweep {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
 
 /* 中间信息区 */
 .center-info {
@@ -639,6 +670,11 @@ body::after {
 .timer-display.warning { color: var(--danger); animation: pulse 0.5s var(--ease-in-out) infinite alternate; }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.45; } }
 .turn-label     { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.turn-label.stamp { animation: turn-stamp 180ms var(--ease-out); }
+@keyframes turn-stamp {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
 .action-counter { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .btn-end-turn {
@@ -730,6 +766,14 @@ body::after {
 .avatar-flash-pierce { --fx-color: rgba(201,79,69,0.7);   --fx-scale: 1.18; --fx-size: 12px; animation: avatar-flash 450ms var(--ease-out); }
 .avatar-flash-steal  { --fx-color: rgba(213,154,60,0.7);  --fx-scale: 1.12; --fx-size: 12px; animation: avatar-flash 450ms var(--ease-out); }
 
+/* 受击微震 — 仅被击中的头像区，2px 快速抖动 */
+.avatar-shake { animation: avatar-shake 120ms var(--ease-out); }
+@keyframes avatar-shake {
+  0%, 100% { transform: translateX(0); }
+  30%      { transform: translateX(-2px); }
+  70%      { transform: translateX(2px); }
+}
+
 .float-text {
   position: fixed; z-index: 400;
   font-size: 22px; font-weight: 800;
@@ -738,9 +782,11 @@ body::after {
   text-shadow: 0 1px 3px rgba(0,0,0,0.55);
 }
 @keyframes float-up {
-  0%   { opacity: 1; transform: translateY(0) scale(1); }
-  60%  { opacity: 0.9; transform: translateY(-26px) scale(1.12); }
-  100% { opacity: 0; transform: translateY(-64px) scale(0.92); }
+  0%   { opacity: 0; transform: translateY(0) scale(0.5); }
+  12%  { opacity: 1; transform: translateY(-5px) scale(1.15); }
+  28%  { opacity: 1; transform: translateY(-10px) scale(1); }
+  60%  { opacity: 0.9; transform: translateY(-28px) scale(1); }
+  100% { opacity: 0; transform: translateY(-66px) scale(0.92); }
 }
 
 .num-card-mine.skill-used { animation: skill-pulse 0.5s var(--ease-out); }
@@ -760,16 +806,29 @@ body::after {
 .result-emoji {
   font-family: var(--font-mono); font-size: 96px; font-weight: 700; line-height: 1;
   color: var(--text-primary);
+  animation: stomp-in 420ms var(--ease-out) both;
 }
 .result-title {
   font-family: var(--font-display);
   font-size: 34px; font-weight: 800; letter-spacing: -0.02em;
   color: var(--text-primary);
+  animation: rise-in 320ms var(--ease-out) 90ms both;
 }
 .result-title.win  { color: var(--success); }
 .result-title.lose { color: var(--danger); }
-.result-detail  { font-size: 14px; color: var(--text-secondary); text-align: center; line-height: 1.6; }
-.result-buttons { display: flex; gap: 12px; margin-top: 12px; }
+.result-detail  { font-size: 14px; color: var(--text-secondary); text-align: center; line-height: 1.6; animation: rise-in 320ms var(--ease-out) 170ms both; }
+.result-buttons { display: flex; gap: 12px; margin-top: 12px; animation: rise-in 320ms var(--ease-out) 260ms both; }
+
+/* 结算入场 — 大字跺脚 + 错峰浮现 */
+@keyframes stomp-in {
+  0%   { opacity: 0; transform: scale(0.6) translateY(10px); }
+  60%  { opacity: 1; transform: scale(1.08) translateY(-3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 #particles-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
@@ -936,9 +995,14 @@ body::after {
 .game-bg-glow {
   position: absolute; width: 320px; height: 320px; border-radius: 50%;
   filter: blur(80px); opacity: 0.07;
+  animation: glow-breathe 4s var(--ease-in-out) infinite alternate;
 }
 .game-bg-glow--top    { top: -100px; left: 30%; background: radial-gradient(circle, var(--accent), transparent); }
-.game-bg-glow--bottom { bottom: -80px; right: 20%; background: radial-gradient(circle, var(--info), transparent); }
+.game-bg-glow--bottom { bottom: -80px; right: 20%; background: radial-gradient(circle, var(--info), transparent); animation-delay: -2s; }
+@keyframes glow-breathe {
+  from { opacity: 0.05; }
+  to   { opacity: 0.09; }
+}
 
 /* ============================================================
    Talent Button (in-game)

@@ -8,6 +8,10 @@ import { getCharacter, getSkillForNumber, CHARACTERS, getComboAvailable, TALENTS
 // DOM 引用缓存
 const dom = {};
 
+// 特效状态缓存
+const lastHpByPrefix = {};     // 各玩家上次渲染的 HP，用于判定是否掉血
+let   lastRenderedTurn = null; // 上次渲染的 currentTurn，用于回合印章触发
+
 /** 初始化 DOM 引用 */
 export function initDomRefs() {
   dom.screens = {
@@ -83,6 +87,7 @@ export function initDomRefs() {
   dom.btnEndTurn     = document.getElementById('btn-end-turn');
   dom.btnSurrender   = document.getElementById('btn-surrender');
   dom.roomCodeBadge  = document.getElementById('room-code-display');
+  dom.laserDivider   = document.querySelector('.laser-divider');
 
   // Game — overlay
   dom.dragSvg = document.getElementById('drag-svg');
@@ -130,7 +135,20 @@ function renderPlayer(player, prefix) {
   const hpBar  = dom[`${prefix}HpBar`];
   const hpText = dom[`${prefix}HpText`];
   const hpPct  = Math.max(0, (player.hp / player.maxHp) * 100);
-  if (hpBar)  hpBar.style.width = `${hpPct}%`;
+
+  // 掉血检测（先判定旧值，再更新缓存）
+  const damaged = lastHpByPrefix[prefix] !== undefined && player.hp < lastHpByPrefix[prefix];
+  lastHpByPrefix[prefix] = player.hp;
+
+  if (hpBar) {
+    const prevWidth = parseFloat(hpBar.style.width) || 100;
+    hpBar.style.width = `${hpPct}%`;
+    hpBar.classList.toggle('low', hpPct <= 25);
+    if (damaged) {
+      triggerHpTrail(hpBar.parentElement, prevWidth, hpPct);
+      shakeAvatar(dom[`${prefix}AvatarZone`]);
+    }
+  }
   if (hpText) {
     const hpStr = Number.isInteger(player.hp) ? player.hp.toString() : player.hp.toFixed(1);
     const maxHpStr = Number.isInteger(player.maxHp) ? player.maxHp.toString() : player.maxHp.toFixed(1);
@@ -153,6 +171,31 @@ function renderPlayer(player, prefix) {
       shieldEl.classList.add('hidden');
     }
   }
+}
+
+/** HP 残影条 — 掉血后在旧位置留一道幽灵色带，追上新值后淡出 */
+function triggerHpTrail(wrap, fromPct, toPct) {
+  if (!wrap) return;
+  const trail = wrap.querySelector('.hp-trail');
+  if (!trail) return;
+  // 瞬间定格在掉血前的位置
+  trail.style.transition = 'none';
+  trail.style.width = `${fromPct}%`;
+  trail.style.opacity = '0.55';
+  void trail.offsetWidth; // 强制回流，让上一步先生效
+  // 追上新值的同时淡出（主血条 400ms，残影 650ms 滞后追上）
+  trail.style.transition = 'width 650ms var(--ease-out), opacity 300ms linear 350ms';
+  trail.style.width = `${toPct}%`;
+  trail.style.opacity = '0';
+}
+
+/** 受击微震 — 被击中的头像区 2px 快速抖动 */
+function shakeAvatar(zone) {
+  if (!zone) return;
+  zone.classList.remove('avatar-shake');
+  void zone.offsetWidth;
+  zone.classList.add('avatar-shake');
+  setTimeout(() => zone.classList.remove('avatar-shake'), 220);
 }
 
 /** 渲染数字卡片 */
@@ -193,6 +236,21 @@ export function renderGameState(state, myPlayerIndex) {
   const isMyTurn = state.currentTurn === myPlayerIndex;
   dom.turnLabel.textContent = isMyTurn ? '你的回合' : '对手回合';
   dom.actionCounter.textContent = `操作 ${state.turnActionsUsed || 0}/2 | 加法 ${state.additionsUsed || 0}/1`;
+
+  // 回合切换 — 印章弹入 + 中线琥珀扫过（仅回合变化时触发，开战首回合也会触发）
+  if (lastRenderedTurn !== state.currentTurn) {
+    lastRenderedTurn = state.currentTurn;
+    if (dom.turnLabel) {
+      dom.turnLabel.classList.remove('stamp');
+      void dom.turnLabel.offsetWidth;
+      dom.turnLabel.classList.add('stamp');
+    }
+    if (dom.laserDivider) {
+      dom.laserDivider.classList.remove('sweep');
+      void dom.laserDivider.offsetWidth;
+      dom.laserDivider.classList.add('sweep');
+    }
+  }
 
   if (isMyTurn && state.phase === 'playing') {
     dom.btnEndTurn.classList.remove('hidden');
