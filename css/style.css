@@ -70,8 +70,8 @@
   --font-mono: "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 
   /* 尺寸 */
-  --avatar-size:   48px;
-  --num-card-size: 72px;
+  --avatar-size:   40px;
+  --num-card-size: 64px;
 }
 
 html, body {
@@ -496,23 +496,26 @@ body::after {
 /* ============================================================
    Game Screen
    ============================================================ */
-#screen-game { display: none; flex-direction: column; height: 100%; }
+/* 对局页：单屏固定，禁滚动 —— 溢出由 flex 吸收，任何触摸都不被浏览器接管为滚动 */
+#screen-game { display: none; flex-direction: column; height: 100%; overflow: hidden; overscroll-behavior: none; -webkit-touch-callout: none; }
 #screen-game.active { display: flex; flex-direction: column; height: 100%; }
 
 /* 对战板 — 版心 */
 .game-board {
   flex: 1; display: flex; flex-direction: column;
   max-width: 520px; width: 100%; margin: 0 auto;
-  padding: 8px 16px 20px;
+  padding: 8px 12px 12px;
+  touch-action: none; /* 对战区手势交给 JS 拖拽，浏览器不再滚屏/缩放 */
 }
 
 /* 顶栏 — 发丝分隔 */
 .top-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px;
+  padding: 8px 16px;
   background: rgba(23,24,29,0.8);
   border-bottom: 1px solid var(--line);
   z-index: 10;
+  touch-action: none;
 }
 .top-bar-title  { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .room-code-badge, .top-bar-ping {
@@ -522,9 +525,9 @@ body::after {
 }
 
 /* 对手区域 */
-.opponent-area { padding: 10px 0 6px; }
+.opponent-area { padding: 6px 0 4px; }
 .player-info { display: flex; align-items: center; gap: 10px; }
-.opponent-info { margin-bottom: 8px; }
+.opponent-info { margin-bottom: 6px; }
 
 .avatar-zone {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -533,8 +536,8 @@ body::after {
 }
 .avatar {
   width: var(--avatar-size); height: var(--avatar-size);
-  border-radius: 14px; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 20px; font-weight: 700;
   background: linear-gradient(165deg, #1E2026, #17181D);
   border: 1px solid rgba(255,255,255,0.10); color: var(--text-primary);
 }
@@ -550,9 +553,10 @@ body::after {
 .player-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 
 /* HP */
-.hp-section { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 血条与 HP 数字同行（不再换行占两行） */
+.hp-section { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .hp-bar-wrap {
-  position: relative; width: 100%; height: 14px;
+  position: relative; flex: 1; min-width: 0; height: 12px;
   background: rgba(255,255,255,0.05); border-radius: var(--radius-full); overflow: hidden;
   border: 1px solid rgba(255,255,255,0.08);
 }
@@ -582,7 +586,7 @@ body::after {
   from { opacity: 0.85; }
   to   { opacity: 1; }
 }
-.hp-text { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hp-text { font-size: 11px; font-weight: 700; min-width: 32px; text-align: right; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .shield-badge {
   font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full);
   background: var(--info-soft); color: var(--info);
@@ -590,8 +594,8 @@ body::after {
 
 /* 数字晶片 */
 .numbers-row { display: flex; gap: 12px; justify-content: center; }
-.opponent-numbers { margin-top: 4px; }
-.my-numbers       { margin-top: 6px; }
+.opponent-numbers { margin-top: 2px; }
+.my-numbers       { margin-top: 4px; }
 
 .num-card {
   width: var(--num-card-size); height: var(--num-card-size);
@@ -601,7 +605,7 @@ body::after {
 }
 .num-card .num-value {
   font-family: var(--font-mono);
-  font-size: 30px; font-weight: 700; line-height: 1;
+  font-size: 26px; font-weight: 700; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .num-card-opponent {
@@ -659,26 +663,30 @@ body::after {
 /* 中间信息区 */
 .center-info {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 6px; padding: 8px 16px;
+  align-items: center; justify-content: center; gap: 4px; padding: 4px 12px;
+}
+/* 按钮横排行 — 天赋/组合/技能 一行，跳过/投降 一行 */
+.action-row {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .timer-display {
   font-family: var(--font-mono);
-  font-size: 26px; font-weight: 700; color: var(--text-primary);
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
   transition: color 200ms var(--ease-out);
   font-variant-numeric: tabular-nums;
 }
 .timer-display.warning { color: var(--danger); animation: pulse 0.5s var(--ease-in-out) infinite alternate; }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.45; } }
-.turn-label     { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.turn-label     { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 .turn-label.stamp { animation: turn-stamp 180ms var(--ease-out); }
 @keyframes turn-stamp {
   from { opacity: 0; transform: scale(0.9); }
   to   { opacity: 1; transform: scale(1); }
 }
-.action-counter { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.action-counter { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .btn-end-turn {
-  margin-top: 4px; font-size: 13px; padding: 8px 20px;
+  font-size: 12px; padding: 6px 18px;
   background: rgba(255,255,255,0.02); color: var(--text-secondary);
   border: 1px solid var(--line); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; font-family: var(--font-sans);
@@ -686,7 +694,7 @@ body::after {
 }
 .btn-end-turn:active { transform: scale(0.97); }
 .btn-surrender {
-  margin-top: 4px; font-size: 12px; padding: 8px 20px;
+  font-size: 11px; padding: 6px 14px;
   background: transparent; color: var(--text-tertiary);
   border: 1px solid rgba(224,101,90,0.18); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; font-family: var(--font-sans);
@@ -696,7 +704,7 @@ body::after {
 
 /* 组合技按钮 */
 .btn-combo {
-  margin-top: 4px; font-size: 14px; padding: 10px 24px;
+  font-size: 12px; padding: 6px 16px;
   background: var(--accent); color: #1A1205;
   border: none; border-radius: var(--radius-md);
   cursor: pointer; font-weight: 700; letter-spacing: 0.02em;
@@ -708,7 +716,7 @@ body::after {
 
 /* 技能查看按钮 */
 .btn-skills {
-  margin-top: 4px; font-size: 13px; padding: 8px 20px;
+  font-size: 12px; padding: 6px 16px;
   background: rgba(255,255,255,0.02); color: var(--text-secondary);
   border: 1px solid var(--line); border-radius: var(--radius-md);
   cursor: pointer; font-weight: 600; font-family: var(--font-sans);
@@ -867,6 +875,7 @@ body::after {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-xl); padding: 24px 28px;
   min-width: 260px; max-width: 320px; width: 90%;
+  max-height: 82vh; overflow-y: auto;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   box-shadow: var(--shadow-lift);
   animation: popup-in 220ms var(--ease-out);
@@ -1008,7 +1017,7 @@ body::after {
    Talent Button (in-game)
    ============================================================ */
 .btn-talent {
-  margin-top: 4px; font-size: 14px; padding: 10px 24px;
+  font-size: 12px; padding: 6px 16px;
   background: var(--accent); color: #1A1205;
   border: none; border-radius: var(--radius-md);
   cursor: pointer; font-weight: 700; letter-spacing: 0.02em;
@@ -1087,10 +1096,32 @@ body::after {
    Responsive
    ============================================================ */
 @media (min-width: 600px) {
+  .lobby-card { max-width: 420px; }
+}
+
+/* 大屏（宽≥600 且 高≥700）：恢复大卡与大间距 */
+@media (min-width: 600px) and (min-height: 700px) {
   :root { --num-card-size: 88px; --avatar-size: 56px; }
   .num-card .num-value { font-size: 36px; }
+  .top-bar { padding: 10px 16px; }
   .opponent-area, .my-info { padding-left: 0; padding-right: 0; }
-  .lobby-card { max-width: 420px; }
+  .center-info { padding: 8px 16px; gap: 6px; }
+}
+
+/* 矮屏（横屏手机 / 迷你屏）：状态行改横排 + 再压一档，保证一屏放下 */
+@media (max-height: 480px) {
+  :root { --num-card-size: 48px; --avatar-size: 36px; }
+  .num-card .num-value { font-size: 22px; }
+  .top-bar { padding: 4px 12px; }
+  .game-board { padding: 6px 12px 8px; }
+  .opponent-area { padding: 4px 0 2px; }
+  .opponent-info { margin-bottom: 4px; }
+  .avatar-zone { padding: 2px 10px; }
+  .hp-bar-wrap { height: 10px; }
+  .timer-display { font-size: 20px; }
+  /* 中间区改横向流式：计时/回合/计数一行，按钮行自动换行 */
+  .center-info { flex-direction: row; flex-wrap: wrap; align-content: center; gap: 2px 8px; padding: 2px 10px; }
+  .laser-divider { display: none; }
 }
 
 /* ============================================================
